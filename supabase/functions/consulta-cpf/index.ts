@@ -1,11 +1,13 @@
 // Edge Function: consulta-cpf
-// Integração real com a Serasa Experian (OFERTA PME V7 NV).
-// Fluxo:
-//   1. OAuth2 client_credentials → access_token (com cache em memória até expirar)
-//   2. POST OFERTA PME V7 NV com o CPF do consumidor
-//   3. Extrai nome + score, persiste em public.consultas, devolve ao cliente
+// Integração real com a Serasa Experian — Relatório Intermediário PF.
+// Doc de referência: https://developer.serasaexperian.com.br/api/relatorio-intermediario-pf
 //
-// Variáveis de ambiente (já configuradas via Lovable Cloud Secrets):
+// Fluxo:
+//   1. OAuth2 client_credentials → access_token (cache em memória)
+//   2. POST Relatório Intermediário PF com o CPF do consumidor
+//   3. Extrai nome, score e lista de pendências (PEFIN/REFIN), persiste e devolve
+//
+// Variáveis de ambiente (Lovable Cloud Secrets):
 //   - SERASA_CLIENT_ID
 //   - SERASA_CLIENT_SECRET
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -18,19 +20,16 @@ const corsHeaders = {
 
 const SERASA_BASE = "https://api.serasaexperian.com.br";
 const TOKEN_URL = `${SERASA_BASE}/security/iam/v1/client-token`;
-// Endpoint do produto OFERTA PME V7 NV (Business/Consumer Reports da Serasa).
-// Caso seu contrato use outro path (vai estar na doc que a Serasa te enviou),
-// basta ajustar a constante abaixo sem mexer no resto do código.
-const OFERTA_PME_URL = `${SERASA_BASE}/credit-services/business-reports/v1/reports`;
+// Endpoint do Relatório Intermediário PF (Credit Bureau Reports / Consumer Information Report).
+// Caso seu contrato use outro path, é só ajustar essa constante.
+const REPORT_URL = `${SERASA_BASE}/credit-services/consumer-information-report/v1/reports`;
 
-// ===== Cache de token em memória (vive enquanto a função estiver "quente") =====
+// ===== Cache de token em memória =====
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
 async function getSerasaToken(): Promise<string> {
   const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt - 60_000 > now) {
-    return cachedToken.value;
-  }
+  if (cachedToken && cachedToken.expiresAt - 60_000 > now) return cachedToken.value;
 
   const clientId = Deno.env.get("SERASA_CLIENT_ID");
   const clientSecret = Deno.env.get("SERASA_CLIENT_SECRET");
@@ -50,9 +49,7 @@ async function getSerasaToken(): Promise<string> {
   });
 
   const text = await resp.text();
-  if (!resp.ok) {
-    throw new Error(`Falha ao obter token Serasa [${resp.status}]: ${text}`);
-  }
+  if (!resp.ok) throw new Error(`Falha ao obter token Serasa [${resp.status}]: ${text}`);
   const data = JSON.parse(text) as { access_token?: string; expires_in?: number };
   if (!data.access_token) throw new Error("Resposta Serasa sem access_token");
 
@@ -61,22 +58,37 @@ async function getSerasaToken(): Promise<string> {
   return data.access_token;
 }
 
-// ===== Chamada ao OFERTA PME V7 NV =====
+// ===== Tipos de retorno =====
+export interface Pendencia {
+  credor: string;
+  valor: number;
+  data: string | null;
+  tipo: string;     // PEFIN, REFIN, etc.
+  contrato?: string;
+}
+
 interface SerasaResult {
   nome: string;
   score: number;
+  pendencias: Pendencia[];
+  totalPendencias: number;
+  somaPendencias: number;
   raw: unknown;
 }
 
+// ===== Chamada ao Relatório Intermediário PF =====
 async function consultarSerasa(cpf: string): Promise<SerasaResult> {
   const token = await getSerasaToken();
 
+  // Payload padrão Credit Bureau / Intermediário PF.
+  // Algumas variações usam optionalFeatures ["INTERMEDIATE_PF"] ou ["CREDIT_REPORT_PF_INTERMEDIATE"].
+  // Mandamos um payload abrangente para o produto resolver.
   const payload = {
-    optionalFeatures: ["OFERTA_PME_V7_NV"],
+    optionalFeatures: ["INTERMEDIATE_PF"],
     consumer: { documentNumber: cpf },
   };
 
-  const resp = await fetch(OFERTA_PME_URL, {
+  const resp = await fetch(REPORT_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -88,17 +100,18 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
 
   const text = await resp.text();
   if (!resp.ok) throw new Error(`Serasa [${resp.status}]: ${text}`);
-
   const json = JSON.parse(text);
 
-  // Extração resiliente — varia por contrato. Tenta vários caminhos.
+  // Nome — tenta vários caminhos comuns
   const nome =
     pickPath(json, ["consumer", "name"]) ??
     pickPath(json, ["consumer", "fullName"]) ??
     pickPath(json, ["registration", "name"]) ??
+    pickPath(json, ["registrationData", "name"]) ??
     pickPath(json, ["data", "name"]) ??
     "Cliente";
 
+  // Score — tenta vários caminhos comuns
   const scoreRaw =
     pickPath(json, ["score", "value"]) ??
     pickPath(json, ["score", "score"]) ??
@@ -115,7 +128,59 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
     throw new Error("Resposta Serasa sem score válido (verifique o caminho do JSON na doc do produto contratado)");
   }
 
-  return { nome: String(nome), score, raw: json };
+  // Pendências (PEFIN / REFIN / negativações)
+  const pendencias = extrairPendencias(json);
+  const somaPendencias = pendencias.reduce((acc, p) => acc + (p.valor || 0), 0);
+
+  return {
+    nome: String(nome),
+    score,
+    pendencias,
+    totalPendencias: pendencias.length,
+    somaPendencias,
+    raw: json,
+  };
+}
+
+function extrairPendencias(json: unknown): Pendencia[] {
+  // Caminhos comuns onde a Serasa lista PEFIN/REFIN no Intermediário PF.
+  const candidatos: unknown[] = [
+    pickPath(json, ["pendencies"]),
+    pickPath(json, ["pendingDebts"]),
+    pickPath(json, ["pendingDebts", "debts"]),
+    pickPath(json, ["debts"]),
+    pickPath(json, ["negativeData", "pendencies"]),
+    pickPath(json, ["negativeData", "debts"]),
+    pickPath(json, ["pefin", "items"]),
+    pickPath(json, ["refin", "items"]),
+  ].filter(Array.isArray);
+
+  const itens: Record<string, unknown>[] = [];
+  for (const arr of candidatos) {
+    for (const it of arr as unknown[]) {
+      if (it && typeof it === "object") itens.push(it as Record<string, unknown>);
+    }
+  }
+
+  return itens.map((it) => {
+    const valor = pickFirstNumber(it, [
+      ["value"], ["amount"], ["debtValue"], ["originalValue"], ["currentValue"],
+    ]);
+    const data = pickFirstString(it, [
+      ["date"], ["occurrenceDate"], ["registerDate"], ["includeDate"], ["referenceDate"],
+    ]);
+    const credor = pickFirstString(it, [
+      ["creditor"], ["creditorName"], ["companyName"], ["informant"], ["informantName"],
+    ]) ?? "—";
+    const tipo = pickFirstString(it, [
+      ["type"], ["modality"], ["debtType"], ["nature"],
+    ]) ?? "PENDÊNCIA";
+    const contrato = pickFirstString(it, [
+      ["contract"], ["contractNumber"], ["operationNumber"], ["reference"],
+    ]);
+
+    return { credor, valor: valor ?? 0, data, tipo: String(tipo).toUpperCase(), contrato };
+  });
 }
 
 function pickPath(obj: unknown, path: string[]): unknown {
@@ -126,6 +191,27 @@ function pickPath(obj: unknown, path: string[]): unknown {
     } else return undefined;
   }
   return cur;
+}
+
+function pickFirstNumber(obj: Record<string, unknown>, paths: string[][]): number | null {
+  for (const p of paths) {
+    const v = pickPath(obj, p);
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim() !== "") {
+      const n = Number.parseFloat(v.replace(/\./g, "").replace(",", "."));
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return null;
+}
+
+function pickFirstString(obj: Record<string, unknown>, paths: string[][]): string | null {
+  for (const p of paths) {
+    const v = pickPath(obj, p);
+    if (typeof v === "string" && v.trim() !== "") return v;
+    if (typeof v === "number") return String(v);
+  }
+  return null;
 }
 
 // ===== Validação de CPF =====
@@ -147,9 +233,7 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return jsonResp({ error: "Não autenticado" }, 401);
-    }
+    if (!authHeader) return jsonResp({ error: "Não autenticado" }, 401);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -158,9 +242,7 @@ Deno.serve(async (req) => {
     );
 
     const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) {
-      return jsonResp({ error: "Sessão inválida" }, 401);
-    }
+    if (userErr || !userData?.user) return jsonResp({ error: "Sessão inválida" }, 401);
 
     const body = await req.json().catch(() => ({}));
     const cpf = onlyDigits(body?.cpf ?? "");
@@ -182,6 +264,9 @@ Deno.serve(async (req) => {
       cpf,
       nome: serasa.nome,
       score: serasa.score,
+      pendencias: serasa.pendencias,
+      totalPendencias: serasa.totalPendencias,
+      somaPendencias: serasa.somaPendencias,
       provider: "serasa",
     });
   } catch (e) {

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Search, Loader2, User2, CheckCircle2, XCircle, Calculator,
+  Search, Loader2, User2, CheckCircle2, XCircle, Calculator, Printer, AlertTriangle,
 } from "lucide-react";
 import {
   maskCpf, brl, pricePmt, suggestedEntry, availableInstallments,
@@ -18,10 +18,21 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 
+interface Pendencia {
+  credor: string;
+  valor: number;
+  data: string | null;
+  tipo: string;
+  contrato?: string;
+}
+
 interface ConsultaResult {
   cpf: string;
   nome: string;
   score: number;
+  pendencias?: Pendencia[];
+  totalPendencias?: number;
+  somaPendencias?: number;
 }
 
 export default function Consulta() {
