@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Search, Loader2, User2, CheckCircle2, XCircle, Calculator,
+  Search, Loader2, User2, CheckCircle2, XCircle, Calculator, Printer, AlertTriangle,
 } from "lucide-react";
 import {
   maskCpf, brl, pricePmt, suggestedEntry, availableInstallments,
@@ -18,10 +18,21 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 
+interface Pendencia {
+  credor: string;
+  valor: number;
+  data: string | null;
+  tipo: string;
+  contrato?: string;
+}
+
 interface ConsultaResult {
   cpf: string;
   nome: string;
   score: number;
+  pendencias?: Pendencia[];
+  totalPendencias?: number;
+  somaPendencias?: number;
 }
 
 export default function Consulta() {
@@ -140,12 +151,19 @@ export default function Consulta() {
 
   return (
     <AppLayout>
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Nova consulta</h1>
-        <p className="text-muted-foreground">Informe o CPF do cliente para iniciar</p>
+      <header className="mb-6 flex items-start justify-between gap-4 print:hidden">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Nova consulta</h1>
+          <p className="text-muted-foreground">Informe o CPF do cliente para iniciar</p>
+        </div>
+        {result && (
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer className="mr-2 h-4 w-4" />Imprimir / PDF
+          </Button>
+        )}
       </header>
 
-      <Card className="shadow-card">
+      <Card className="shadow-card print:hidden">
         <CardContent className="p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-2">
@@ -191,6 +209,58 @@ export default function Consulta() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Card de pendências (PEFIN/REFIN) */}
+          {result.pendencias && result.pendencias.length > 0 ? (
+            <Card className="mt-6 shadow-card overflow-hidden">
+              <div className="h-1 bg-destructive" />
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    <h2 className="text-lg font-semibold">Pendências financeiras</h2>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">{result.totalPendencias} ocorrência(s)</p>
+                    <p className="text-base font-bold text-destructive">{brl(result.somaPendencias ?? 0)}</p>
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-muted/60">
+                      <TableRow>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Credor</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.pendencias.map((p, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{p.tipo}</TableCell>
+                          <TableCell>{p.credor}{p.contrato ? <span className="text-muted-foreground"> · {p.contrato}</span> : null}</TableCell>
+                          <TableCell className="text-muted-foreground">{p.data ?? "—"}</TableCell>
+                          <TableCell className="text-right font-semibold">{brl(p.valor)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="mt-6 shadow-card overflow-hidden">
+              <div className="h-1 bg-success" />
+              <CardContent className="p-6 flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-success" />
+                <div>
+                  <p className="font-semibold">Sem pendências financeiras</p>
+                  <p className="text-sm text-muted-foreground">Não foram localizadas dívidas (PEFIN/REFIN) no Relatório Intermediário PF.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {aprovado && (
             <Card className="mt-6 shadow-card">
@@ -295,7 +365,7 @@ export default function Consulta() {
                       </div>
                     )}
 
-                    <div className="mt-6 flex gap-3">
+                    <div className="mt-6 flex gap-3 print:hidden">
                       <Button onClick={() => registrar("aprovado")} disabled={!parcelas || savingVenda}
                         className="bg-success hover:bg-success/90 text-success-foreground">
                         Registrar venda aprovada

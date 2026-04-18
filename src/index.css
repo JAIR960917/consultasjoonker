@@ -113,3 +113,11 @@
   .shadow-glow { box-shadow: var(--shadow-glow); }
   .shadow-card { box-shadow: var(--shadow-card); }
 }
+
+/* Impressão / PDF — esconde sidebar e elementos não relevantes */
+@media print {
+  aside, nav, [data-sidebar] { display: none !important; }
+  body { background: white !important; }
+  .shadow-card, .shadow-elegant, .shadow-glow { box-shadow: none !important; }
+  main { padding: 0 !important; max-width: 100% !important; }
+}
