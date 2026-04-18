@@ -108,7 +108,9 @@ export default function Consulta() {
   const registrar = async (status: "aprovado" | "recusado") => {
     if (!result || !settings || !parcelas) return;
     if (entrada < minEntrada - 0.01) {
-      toast.error("Entrada abaixo do mínimo", { description: `Mínimo: ${brl(minEntrada)}` });
+      toast.error("Entrada insuficiente", {
+        description: "O valor informado é menor que o exigido para essa faixa de score. Aumente a entrada e tente novamente.",
+      });
       return;
     }
     const taxa = rateForScore(result.score, settings);
