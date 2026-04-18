@@ -210,6 +210,58 @@ export default function Consulta() {
             </CardContent>
           </Card>
 
+          {/* Card de pendências (PEFIN/REFIN) */}
+          {result.pendencias && result.pendencias.length > 0 ? (
+            <Card className="mt-6 shadow-card overflow-hidden">
+              <div className="h-1 bg-destructive" />
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    <h2 className="text-lg font-semibold">Pendências financeiras</h2>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">{result.totalPendencias} ocorrência(s)</p>
+                    <p className="text-base font-bold text-destructive">{brl(result.somaPendencias ?? 0)}</p>
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-muted/60">
+                      <TableRow>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Credor</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.pendencias.map((p, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{p.tipo}</TableCell>
+                          <TableCell>{p.credor}{p.contrato ? <span className="text-muted-foreground"> · {p.contrato}</span> : null}</TableCell>
+                          <TableCell className="text-muted-foreground">{p.data ?? "—"}</TableCell>
+                          <TableCell className="text-right font-semibold">{brl(p.valor)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="mt-6 shadow-card overflow-hidden">
+              <div className="h-1 bg-success" />
+              <CardContent className="p-6 flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-success" />
+                <div>
+                  <p className="font-semibold">Sem pendências financeiras</p>
+                  <p className="text-sm text-muted-foreground">Não foram localizadas dívidas (PEFIN/REFIN) no Relatório Intermediário PF.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {aprovado && (
             <Card className="mt-6 shadow-card">
               <CardContent className="p-6">
