@@ -4,7 +4,7 @@ project_id = "vtiimbbrxsfqgmscqdnl"
 verify_jwt = false
 
 [functions.consulta-cpf]
-verify_jwt = true
+verify_jwt = false
 
 [functions.admin-create-user]
-verify_jwt = true
+verify_jwt = false
