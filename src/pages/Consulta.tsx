@@ -365,7 +365,7 @@ export default function Consulta() {
                       </div>
                     )}
 
-                    <div className="mt-6 flex gap-3">
+                    <div className="mt-6 flex gap-3 print:hidden">
                       <Button onClick={() => registrar("aprovado")} disabled={!parcelas || savingVenda}
                         className="bg-success hover:bg-success/90 text-success-foreground">
                         Registrar venda aprovada
