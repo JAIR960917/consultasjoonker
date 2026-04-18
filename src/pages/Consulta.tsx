@@ -11,8 +11,12 @@ import {
 } from "lucide-react";
 import {
   maskCpf, brl, pricePmt, suggestedEntry, availableInstallments,
-  minEntryForScore, rateForScore, type SettingsLite, type ScoreTier,
+  minEntryForScore, rateForScore, amortizationSchedule,
+  type SettingsLite, type ScoreTier,
 } from "@/lib/finance";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
 interface ConsultaResult {
   cpf: string;
