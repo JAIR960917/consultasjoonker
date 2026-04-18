@@ -37,19 +37,29 @@ async function getSerasaToken(): Promise<string> {
     throw new Error("Credenciais Serasa não configuradas no servidor");
   }
 
-  const basic = btoa(`${clientId}:${clientSecret}`);
   const resp = await fetch(TOKEN_URL, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${basic}`,
       "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json",
     },
-    body: new URLSearchParams({ grant_type: "client_credentials" }),
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
   });
 
   const text = await resp.text();
-  if (!resp.ok) throw new Error(`Falha ao obter token Serasa [${resp.status}]: ${text}`);
+  if (!resp.ok) {
+    console.error("Serasa token error", {
+      status: resp.status,
+      clientIdPrefix: clientId.substring(0, 6),
+      clientIdLen: clientId.length,
+      body: text.substring(0, 300),
+    });
+    throw new Error(`Falha ao obter token Serasa [${resp.status}]: ${text}`);
+  }
   const data = JSON.parse(text) as { access_token?: string; expires_in?: number };
   if (!data.access_token) throw new Error("Resposta Serasa sem access_token");
 
