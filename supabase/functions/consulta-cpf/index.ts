@@ -235,14 +235,19 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return jsonResp({ error: "Não autenticado" }, 401);
 
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+
+    // Usa service role para validar o token (compatível com chaves ES256)
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) return jsonResp({ error: "Sessão inválida" }, 401);
+    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+    if (userErr || !userData?.user) {
+      console.error("Auth error:", userErr);
+      return jsonResp({ error: "Sessão inválida" }, 401);
+    }
 
     const body = await req.json().catch(() => ({}));
     const cpf = onlyDigits(body?.cpf ?? "");
