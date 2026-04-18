@@ -11,8 +11,12 @@ import {
 } from "lucide-react";
 import {
   maskCpf, brl, pricePmt, suggestedEntry, availableInstallments,
-  minEntryForScore, rateForScore, type SettingsLite, type ScoreTier,
+  minEntryForScore, rateForScore, amortizationSchedule,
+  type SettingsLite, type ScoreTier,
 } from "@/lib/finance";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
 interface ConsultaResult {
   cpf: string;
@@ -237,6 +241,41 @@ export default function Consulta() {
                           <div><p className="text-xs text-muted-foreground">Entrada</p><p className="font-semibold">{brl(entrada)}</p></div>
                           <div><p className="text-xs text-muted-foreground">Financiado</p><p className="font-semibold">{brl(financiado)}</p></div>
                           <div><p className="text-xs text-muted-foreground">{parcelas}x de</p><p className="font-bold text-accent">{brl(pricePmt(financiado, taxaScore, parcelas))}</p></div>
+                        </div>
+                      </div>
+                    )}
+
+                    {parcelas && (
+                      <div className="mt-6">
+                        <div className="mb-2 flex items-center justify-between">
+                          <h3 className="text-sm font-semibold">Tabela de amortização (Price)</h3>
+                          <p className="text-xs text-muted-foreground">Taxa: {taxaScore}% a.m.</p>
+                        </div>
+                        <div className="rounded-lg border overflow-hidden">
+                          <div className="max-h-80 overflow-auto">
+                            <Table>
+                              <TableHeader className="sticky top-0 bg-muted/60 backdrop-blur">
+                                <TableRow>
+                                  <TableHead className="w-16">Mês</TableHead>
+                                  <TableHead className="text-right">Parcela</TableHead>
+                                  <TableHead className="text-right">Juros</TableHead>
+                                  <TableHead className="text-right">Amortização</TableHead>
+                                  <TableHead className="text-right">Saldo</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {amortizationSchedule(financiado, taxaScore, parcelas).map((r) => (
+                                  <TableRow key={r.mes}>
+                                    <TableCell className="font-medium">{r.mes}</TableCell>
+                                    <TableCell className="text-right">{brl(r.parcela)}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground">{brl(r.juros)}</TableCell>
+                                    <TableCell className="text-right">{brl(r.amortizacao)}</TableCell>
+                                    <TableCell className="text-right font-semibold">{brl(r.saldo)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
                         </div>
                       </div>
                     )}
