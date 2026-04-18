@@ -151,12 +151,19 @@ export default function Consulta() {
 
   return (
     <AppLayout>
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Nova consulta</h1>
-        <p className="text-muted-foreground">Informe o CPF do cliente para iniciar</p>
+      <header className="mb-6 flex items-start justify-between gap-4 print:hidden">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Nova consulta</h1>
+          <p className="text-muted-foreground">Informe o CPF do cliente para iniciar</p>
+        </div>
+        {result && (
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer className="mr-2 h-4 w-4" />Imprimir / PDF
+          </Button>
+        )}
       </header>
 
-      <Card className="shadow-card">
+      <Card className="shadow-card print:hidden">
         <CardContent className="p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-2">
