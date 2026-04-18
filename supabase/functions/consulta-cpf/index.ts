@@ -19,7 +19,7 @@ const corsHeaders = {
 };
 
 const SERASA_BASE = "https://api.serasaexperian.com.br";
-const TOKEN_URL = `${SERASA_BASE}/security/iam/v1/client-token`;
+const TOKEN_URL = `${SERASA_BASE}/oauth2/v3/token`;
 // Endpoint do Relatório Intermediário PF (Credit Bureau Reports / Consumer Information Report).
 // Caso seu contrato use outro path, é só ajustar essa constante.
 const REPORT_URL = `${SERASA_BASE}/credit-services/consumer-information-report/v1/reports`;
