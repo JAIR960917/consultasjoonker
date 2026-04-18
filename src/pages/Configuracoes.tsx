@@ -7,28 +7,39 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import type { ScoreTier } from "@/lib/finance";
 
 interface Settings {
   id: string;
-  min_entry_percent: number;
   min_score: number;
-  good_score: number;
-  installment_rates: Record<string, number>;
   max_installments: number;
+  score_tiers: ScoreTier[];
 }
+
+const defaultTiers: ScoreTier[] = [
+  { min: 0, max: 100, entry_percent: 100, rate: 0 },
+  { min: 101, max: 299, entry_percent: 35, rate: 4.0 },
+  { min: 300, max: 400, entry_percent: 30, rate: 3.5 },
+  { min: 401, max: 500, entry_percent: 25, rate: 3.0 },
+  { min: 501, max: 600, entry_percent: 20, rate: 2.5 },
+  { min: 601, max: 1000, entry_percent: 15, rate: 2.0 },
+];
 
 export default function Configuracoes() {
   const [s, setS] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
-  const [novaParcela, setNovaParcela] = useState("");
-  const [novaTaxa, setNovaTaxa] = useState("");
 
   useEffect(() => {
     supabase.from("settings").select("*").limit(1).maybeSingle().then(({ data }) => {
-      if (data) setS({
-        ...data,
-        installment_rates: (data.installment_rates as Record<string, number>) ?? {},
-      } as Settings);
+      if (data) {
+        const tiers = (data.score_tiers as unknown as ScoreTier[]) ?? [];
+        setS({
+          id: data.id,
+          min_score: data.min_score,
+          max_installments: data.max_installments,
+          score_tiers: tiers.length ? tiers : defaultTiers,
+        });
+      }
     });
   }, []);
 
@@ -36,103 +47,142 @@ export default function Configuracoes() {
 
   const setField = <K extends keyof Settings>(k: K, v: Settings[K]) => setS({ ...s, [k]: v });
 
-  const addRate = () => {
-    const n = parseInt(novaParcela, 10);
-    const t = parseFloat(novaTaxa.replace(",", "."));
-    if (!n || n < 1 || isNaN(t) || t < 0) {
-      toast.error("Parcela ou taxa inválida"); return;
-    }
-    setField("installment_rates", { ...s.installment_rates, [String(n)]: t });
-    setNovaParcela(""); setNovaTaxa("");
+  const updateTier = (idx: number, patch: Partial<ScoreTier>) => {
+    const next = s.score_tiers.map((t, i) => (i === idx ? { ...t, ...patch } : t));
+    setField("score_tiers", next);
   };
 
-  const removeRate = (k: string) => {
-    const next = { ...s.installment_rates };
-    delete next[k];
-    setField("installment_rates", next);
+  const removeTier = (idx: number) => {
+    setField("score_tiers", s.score_tiers.filter((_, i) => i !== idx));
   };
 
-  const updateRate = (k: string, v: string) => {
-    const t = parseFloat(v.replace(",", "."));
-    if (isNaN(t)) return;
-    setField("installment_rates", { ...s.installment_rates, [k]: t });
+  const addTier = () => {
+    const last = s.score_tiers[s.score_tiers.length - 1];
+    const min = last ? last.max + 1 : 0;
+    setField("score_tiers", [
+      ...s.score_tiers,
+      { min, max: Math.max(min + 99, 1000), entry_percent: 15, rate: 2.0 },
+    ]);
   };
 
   const save = async () => {
+    // validações
+    for (const t of s.score_tiers) {
+      if (t.min < 0 || t.max < t.min || t.entry_percent < 0 || t.entry_percent > 100 || t.rate < 0) {
+        toast.error("Faixa inválida", { description: `Faixa ${t.min}-${t.max}` });
+        return;
+      }
+    }
     setSaving(true);
+    const tiersSorted = [...s.score_tiers].sort((a, b) => a.min - b.min);
     const { error } = await supabase.from("settings").update({
-      min_entry_percent: s.min_entry_percent,
       min_score: s.min_score,
-      good_score: s.good_score,
-      installment_rates: s.installment_rates,
       max_installments: s.max_installments,
+      score_tiers: tiersSorted as unknown as never,
     }).eq("id", s.id);
     setSaving(false);
     if (error) toast.error("Erro ao salvar", { description: error.message });
-    else toast.success("Configurações salvas");
+    else {
+      toast.success("Configurações salvas");
+      setField("score_tiers", tiersSorted);
+    }
   };
-
-  const sortedKeys = Object.keys(s.installment_rates).map((k) => parseInt(k)).sort((a, b) => a - b).map(String);
 
   return (
     <AppLayout>
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-        <p className="text-muted-foreground">Regras de aprovação e juros do sistema</p>
+        <p className="text-muted-foreground">Regras de aprovação, entrada mínima e juros por faixa de score</p>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6">
         <Card className="shadow-card">
           <CardContent className="p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Critérios de aprovação</h2>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <h2 className="text-lg font-semibold">Critérios gerais</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Score mínimo</Label>
-                <Input type="number" value={s.min_score} onChange={(e) => setField("min_score", parseInt(e.target.value || "0"))} />
+                <Label>Score mínimo para financiar</Label>
+                <Input
+                  type="number"
+                  value={s.min_score}
+                  onChange={(e) => setField("min_score", parseInt(e.target.value || "0"))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Abaixo deste score a venda só pode ser à vista (entrada 100%).
+                </p>
               </div>
               <div className="space-y-2">
-                <Label>Score "bom"</Label>
-                <Input type="number" value={s.good_score} onChange={(e) => setField("good_score", parseInt(e.target.value || "0"))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Entrada mín. (%)</Label>
-                <Input type="number" step="0.01" value={s.min_entry_percent} onChange={(e) => setField("min_entry_percent", parseFloat(e.target.value || "0"))} />
+                <Label>Parcelas máximas</Label>
+                <Input
+                  type="number"
+                  value={s.max_installments}
+                  onChange={(e) => setField("max_installments", parseInt(e.target.value || "0"))}
+                />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Parcelas máximas</Label>
-              <Input type="number" value={s.max_installments} onChange={(e) => setField("max_installments", parseInt(e.target.value || "0"))} />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Score &lt; mínimo = recusado. Score &gt;= "bom" recebe a entrada mínima sugerida; entre os dois, a entrada sugerida cresce proporcionalmente.
-            </p>
           </CardContent>
         </Card>
 
         <Card className="shadow-card">
           <CardContent className="p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Taxas de juros (mensais)</h2>
-            <div className="space-y-2">
-              {sortedKeys.map((k) => (
-                <div key={k} className="flex items-center gap-2">
-                  <span className="w-12 text-sm font-medium">{k}x</span>
-                  <Input type="number" step="0.01" value={s.installment_rates[k]}
-                    onChange={(e) => updateRate(k, e.target.value)} />
-                  <span className="text-xs text-muted-foreground">% a.m.</span>
-                  <Button variant="ghost" size="icon" onClick={() => removeRate(k)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">Faixas de score</h2>
+                <p className="text-sm text-muted-foreground">
+                  Para cada faixa: % mínima de entrada e taxa de juros mensal aplicada ao valor financiado.
+                </p>
+              </div>
+              <Button onClick={addTier} variant="outline" size="sm">
+                <Plus className="mr-1 h-4 w-4" />Nova faixa
+              </Button>
             </div>
-            <div className="border-t pt-4">
-              <Label className="text-xs">Adicionar nova faixa</Label>
-              <div className="mt-2 flex gap-2">
-                <Input placeholder="Parcelas" value={novaParcela} onChange={(e) => setNovaParcela(e.target.value)} />
-                <Input placeholder="Taxa %" value={novaTaxa} onChange={(e) => setNovaTaxa(e.target.value)} />
-                <Button onClick={addRate} variant="outline"><Plus className="h-4 w-4" /></Button>
+
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground">
+                <div>Score mín.</div>
+                <div>Score máx.</div>
+                <div>Entrada (%)</div>
+                <div>Juros (% a.m.)</div>
+                <div></div>
+              </div>
+              <div className="space-y-2">
+                {s.score_tiers.map((t, idx) => (
+                  <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] items-center gap-2 rounded-lg border bg-card p-2">
+                    <Input
+                      type="number"
+                      value={t.min}
+                      onChange={(e) => updateTier(idx, { min: parseInt(e.target.value || "0") })}
+                    />
+                    <Input
+                      type="number"
+                      value={t.max}
+                      onChange={(e) => updateTier(idx, { max: parseInt(e.target.value || "0") })}
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={t.entry_percent}
+                      onChange={(e) => updateTier(idx, { entry_percent: parseFloat(e.target.value || "0") })}
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={t.rate}
+                      onChange={(e) => updateTier(idx, { rate: parseFloat(e.target.value || "0") })}
+                    />
+                    <Button variant="ghost" size="icon" onClick={() => removeTier(idx)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              Exemplo: faixa <strong>101–299</strong> com entrada <strong>35%</strong> e juros <strong>4%</strong> a.m.
+              significa que clientes nessa faixa precisam dar pelo menos 35% do valor da venda como entrada e o
+              restante é parcelado a 4% ao mês (Tabela Price).
+            </p>
           </CardContent>
         </Card>
       </div>

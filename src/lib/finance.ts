@@ -1,11 +1,16 @@
-// Helpers de cálculo financeiro (Tabela Price) e máscara CPF.
+// Helpers de cálculo financeiro (Tabela Price), faixas de score e máscara CPF.
+
+export interface ScoreTier {
+  min: number;
+  max: number;
+  entry_percent: number; // % mínima de entrada exigida nessa faixa
+  rate: number;          // taxa de juros mensal (%) aplicada nessa faixa
+}
 
 export interface SettingsLite {
-  min_entry_percent: number;
   min_score: number;
-  good_score: number;
-  installment_rates: Record<string, number>; // chave string, valor = taxa mensal %
   max_installments: number;
+  score_tiers: ScoreTier[];
 }
 
 export function maskCpf(value: string): string {
@@ -28,25 +33,32 @@ export function pricePmt(pv: number, monthlyRatePct: number, n: number): number 
   return (pv * i) / (1 - Math.pow(1 + i, -n));
 }
 
+/** Localiza a faixa de score aplicável. */
+export function tierForScore(score: number, settings: SettingsLite): ScoreTier | null {
+  const tiers = [...(settings.score_tiers ?? [])].sort((a, b) => a.min - b.min);
+  return tiers.find((t) => score >= t.min && score <= t.max) ?? null;
+}
+
+/** Entrada mínima em R$ baseada na faixa do score. */
+export function minEntryForScore(total: number, score: number, settings: SettingsLite): number {
+  const tier = tierForScore(score, settings);
+  if (!tier) return total;
+  return total * (tier.entry_percent / 100);
+}
+
+/** Entrada sugerida = exatamente o mínimo da faixa (operador pode aumentar). */
 export function suggestedEntry(total: number, score: number, settings: SettingsLite): number {
-  // Entrada sugerida sobe se score for ruim. Para score >= good_score sugere o mínimo;
-  // para score < min_score retorna 100% (não financia).
-  if (score < settings.min_score) return total;
-  if (score >= settings.good_score) return total * (settings.min_entry_percent / 100);
-  // interpolação linear
-  const ratio = (settings.good_score - score) / (settings.good_score - settings.min_score);
-  // sugere entre min_entry_percent e min_entry_percent + 30 pontos
-  const pct = settings.min_entry_percent + ratio * 30;
-  return total * (Math.min(pct, 90) / 100);
+  return minEntryForScore(total, score, settings);
 }
 
+/** Taxa de juros mensal (%) baseada na faixa do score. */
+export function rateForScore(score: number, settings: SettingsLite): number {
+  const tier = tierForScore(score, settings);
+  return tier?.rate ?? 0;
+}
+
+/** Lista de parcelas disponíveis (1..max_installments). */
 export function availableInstallments(settings: SettingsLite): number[] {
-  return Object.keys(settings.installment_rates)
-    .map((k) => parseInt(k, 10))
-    .filter((n) => !Number.isNaN(n) && n >= 1 && n <= settings.max_installments)
-    .sort((a, b) => a - b);
-}
-
-export function rateFor(installments: number, settings: SettingsLite): number {
-  return settings.installment_rates[String(installments)] ?? 0;
+  const max = Math.max(1, settings.max_installments || 1);
+  return Array.from({ length: max }, (_, i) => i + 1);
 }

@@ -82,6 +82,7 @@ export type Database = {
           max_installments: number
           min_entry_percent: number
           min_score: number
+          score_tiers: Json
           updated_at: string
         }
         Insert: {
@@ -91,6 +92,7 @@ export type Database = {
           max_installments?: number
           min_entry_percent?: number
           min_score?: number
+          score_tiers?: Json
           updated_at?: string
         }
         Update: {
@@ -100,6 +102,7 @@ export type Database = {
           max_installments?: number
           min_entry_percent?: number
           min_score?: number
+          score_tiers?: Json
           updated_at?: string
         }
         Relationships: []
