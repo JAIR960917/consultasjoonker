@@ -210,11 +210,10 @@ export default function Consulta() {
                     </Label>
                     <Input id="entrada" inputMode="decimal" value={valorEntrada}
                       onChange={(e) => setValorEntrada(e.target.value)} placeholder="0,00" />
-                    <p className="text-xs text-muted-foreground">
-                      Entrada mínima conforme score: {brl(minEntrada)}
-                    </p>
                     {entrada > 0 && entrada < minEntrada - 0.01 && (
-                      <p className="text-xs text-destructive">Entrada abaixo do mínimo permitido</p>
+                      <p className="text-xs text-destructive">
+                        Entrada insuficiente para essa faixa de score. Aumente o valor da entrada para prosseguir.
+                      </p>
                     )}
                   </div>
                 </div>
