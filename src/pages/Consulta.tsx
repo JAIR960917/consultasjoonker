@@ -10,8 +10,8 @@ import {
   Search, Loader2, User2, CheckCircle2, XCircle, Calculator,
 } from "lucide-react";
 import {
-  maskCpf, brl, pricePmt, suggestedEntry, availableInstallments, rateFor,
-  type SettingsLite,
+  maskCpf, brl, pricePmt, suggestedEntry, availableInstallments,
+  minEntryForScore, rateForScore, type SettingsLite, type ScoreTier,
 } from "@/lib/finance";
 
 interface ConsultaResult {
@@ -36,11 +36,9 @@ export default function Consulta() {
   useEffect(() => {
     supabase.from("settings").select("*").limit(1).maybeSingle().then(({ data }) => {
       if (data) setSettings({
-        min_entry_percent: Number(data.min_entry_percent),
         min_score: data.min_score,
-        good_score: data.good_score,
-        installment_rates: (data.installment_rates as Record<string, number>) ?? {},
         max_installments: data.max_installments,
+        score_tiers: (data.score_tiers as unknown as ScoreTier[]) ?? [],
       });
     });
   }, []);
@@ -49,9 +47,10 @@ export default function Consulta() {
   const entrada = parseFloat(valorEntrada.replace(",", ".")) || 0;
 
   const aprovado = result && settings ? result.score >= settings.min_score : false;
-  const minEntrada = result && settings && total > 0 ? total * (settings.min_entry_percent / 100) : 0;
+  const minEntrada = result && settings && total > 0 ? minEntryForScore(total, result.score, settings) : 0;
   const sugerida = result && settings && total > 0 ? suggestedEntry(total, result.score, settings) : 0;
   const financiado = Math.max(total - entrada, 0);
+  const taxaScore = result && settings ? rateForScore(result.score, settings) : 0;
 
   const opcoesParcelas = useMemo(() => settings ? availableInstallments(settings) : [], [settings]);
 
@@ -94,7 +93,7 @@ export default function Consulta() {
       toast.error("Entrada abaixo do mínimo", { description: `Mínimo: ${brl(minEntrada)}` });
       return;
     }
-    const taxa = rateFor(parcelas, settings);
+    const taxa = rateForScore(result.score, settings);
     const pmt = pricePmt(financiado, taxa, parcelas);
     setSavingVenda(true);
     const { data: u } = await supabase.auth.getUser();
@@ -194,7 +193,7 @@ export default function Consulta() {
                     <Input id="entrada" inputMode="decimal" value={valorEntrada}
                       onChange={(e) => setValorEntrada(e.target.value)} placeholder="0,00" />
                     <p className="text-xs text-muted-foreground">
-                      Entrada mínima: {brl(minEntrada)} ({settings.min_entry_percent}%)
+                      Entrada mínima conforme score: {brl(minEntrada)}
                     </p>
                     {entrada > 0 && entrada < minEntrada - 0.01 && (
                       <p className="text-xs text-destructive">Entrada abaixo do mínimo permitido</p>
@@ -208,7 +207,7 @@ export default function Consulta() {
                       <Label>Parcelas</Label>
                       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                         {opcoesParcelas.map((n) => {
-                          const taxa = rateFor(n, settings);
+                          const taxa = taxaScore;
                           const pmt = pricePmt(financiado, taxa, n);
                           const ativo = parcelas === n;
                           return (
@@ -237,7 +236,7 @@ export default function Consulta() {
                           <div><p className="text-xs text-muted-foreground">Total</p><p className="font-semibold">{brl(total)}</p></div>
                           <div><p className="text-xs text-muted-foreground">Entrada</p><p className="font-semibold">{brl(entrada)}</p></div>
                           <div><p className="text-xs text-muted-foreground">Financiado</p><p className="font-semibold">{brl(financiado)}</p></div>
-                          <div><p className="text-xs text-muted-foreground">{parcelas}x de</p><p className="font-bold text-accent">{brl(pricePmt(financiado, rateFor(parcelas, settings), parcelas))}</p></div>
+                          <div><p className="text-xs text-muted-foreground">{parcelas}x de</p><p className="font-bold text-accent">{brl(pricePmt(financiado, taxaScore, parcelas))}</p></div>
                         </div>
                       </div>
                     )}
