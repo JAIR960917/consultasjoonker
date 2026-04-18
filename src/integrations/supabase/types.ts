@@ -14,16 +14,191 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      consultas: {
+        Row: {
+          cpf: string
+          created_at: string
+          id: string
+          nome: string | null
+          raw: Json | null
+          score: number | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          cpf: string
+          created_at?: string
+          id?: string
+          nome?: string | null
+          raw?: Json | null
+          score?: number | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          id?: string
+          nome?: string | null
+          raw?: Json | null
+          score?: number | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          good_score: number
+          id: string
+          installment_rates: Json
+          max_installments: number
+          min_entry_percent: number
+          min_score: number
+          updated_at: string
+        }
+        Insert: {
+          good_score?: number
+          id?: string
+          installment_rates?: Json
+          max_installments?: number
+          min_entry_percent?: number
+          min_score?: number
+          updated_at?: string
+        }
+        Update: {
+          good_score?: number
+          id?: string
+          installment_rates?: Json
+          max_installments?: number
+          min_entry_percent?: number
+          min_score?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vendas: {
+        Row: {
+          consulta_id: string | null
+          cpf: string
+          created_at: string
+          id: string
+          nome: string | null
+          parcelas: number
+          score: number | null
+          status: string
+          taxa_juros: number
+          user_id: string
+          valor_entrada: number
+          valor_financiado: number
+          valor_parcela: number
+          valor_total: number
+        }
+        Insert: {
+          consulta_id?: string | null
+          cpf: string
+          created_at?: string
+          id?: string
+          nome?: string | null
+          parcelas: number
+          score?: number | null
+          status?: string
+          taxa_juros: number
+          user_id: string
+          valor_entrada: number
+          valor_financiado: number
+          valor_parcela: number
+          valor_total: number
+        }
+        Update: {
+          consulta_id?: string | null
+          cpf?: string
+          created_at?: string
+          id?: string
+          nome?: string | null
+          parcelas?: number
+          score?: number | null
+          status?: string
+          taxa_juros?: number
+          user_id?: string
+          valor_entrada?: number
+          valor_financiado?: number
+          valor_parcela?: number
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_consulta_id_fkey"
+            columns: ["consulta_id"]
+            isOneToOne: false
+            referencedRelation: "consultas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "operador"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +325,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "operador"],
+    },
   },
 } as const
