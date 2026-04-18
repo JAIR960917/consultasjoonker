@@ -39,11 +39,25 @@ export default function Consulta() {
 
   useEffect(() => {
     supabase.from("settings").select("*").limit(1).maybeSingle().then(({ data }) => {
-      if (data) setSettings({
-        min_score: data.min_score,
-        max_installments: data.max_installments,
-        score_tiers: (data.score_tiers as unknown as ScoreTier[]) ?? [],
-      });
+      if (data) {
+        const raw = (data.score_tiers as unknown as Array<Partial<ScoreTier> & { entry_percent?: number }>) ?? [];
+        const tiers: ScoreTier[] = raw.map((t) => {
+          const min_pct = t.entry_min_percent ?? t.entry_percent ?? 0;
+          const sug_pct = t.entry_suggested_percent ?? t.entry_percent ?? min_pct;
+          return {
+            min: t.min ?? 0,
+            max: t.max ?? 0,
+            entry_suggested_percent: sug_pct,
+            entry_min_percent: min_pct,
+            rate: t.rate ?? 0,
+          };
+        });
+        setSettings({
+          min_score: data.min_score,
+          max_installments: data.max_installments,
+          score_tiers: tiers,
+        });
+      }
     });
   }, []);
 
@@ -94,7 +108,9 @@ export default function Consulta() {
   const registrar = async (status: "aprovado" | "recusado") => {
     if (!result || !settings || !parcelas) return;
     if (entrada < minEntrada - 0.01) {
-      toast.error("Entrada abaixo do mínimo", { description: `Mínimo: ${brl(minEntrada)}` });
+      toast.error("Entrada insuficiente", {
+        description: "O valor informado é menor que o exigido para essa faixa de score. Aumente a entrada e tente novamente.",
+      });
       return;
     }
     const taxa = rateForScore(result.score, settings);
@@ -196,11 +212,10 @@ export default function Consulta() {
                     </Label>
                     <Input id="entrada" inputMode="decimal" value={valorEntrada}
                       onChange={(e) => setValorEntrada(e.target.value)} placeholder="0,00" />
-                    <p className="text-xs text-muted-foreground">
-                      Entrada mínima conforme score: {brl(minEntrada)}
-                    </p>
                     {entrada > 0 && entrada < minEntrada - 0.01 && (
-                      <p className="text-xs text-destructive">Entrada abaixo do mínimo permitido</p>
+                      <p className="text-xs text-destructive">
+                        Entrada insuficiente para essa faixa de score. Aumente o valor da entrada para prosseguir.
+                      </p>
                     )}
                   </div>
                 </div>

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, EyeOff } from "lucide-react";
 import type { ScoreTier } from "@/lib/finance";
 
 interface Settings {
@@ -17,13 +17,26 @@ interface Settings {
 }
 
 const defaultTiers: ScoreTier[] = [
-  { min: 0, max: 100, entry_percent: 100, rate: 0 },
-  { min: 101, max: 299, entry_percent: 35, rate: 4.0 },
-  { min: 300, max: 400, entry_percent: 30, rate: 3.5 },
-  { min: 401, max: 500, entry_percent: 25, rate: 3.0 },
-  { min: 501, max: 600, entry_percent: 20, rate: 2.5 },
-  { min: 601, max: 1000, entry_percent: 15, rate: 2.0 },
+  { min: 0, max: 100, entry_suggested_percent: 100, entry_min_percent: 100, rate: 0 },
+  { min: 101, max: 299, entry_suggested_percent: 40, entry_min_percent: 35, rate: 4.0 },
+  { min: 300, max: 400, entry_suggested_percent: 35, entry_min_percent: 30, rate: 3.5 },
+  { min: 401, max: 500, entry_suggested_percent: 30, entry_min_percent: 25, rate: 3.0 },
+  { min: 501, max: 600, entry_suggested_percent: 25, entry_min_percent: 20, rate: 2.5 },
+  { min: 601, max: 1000, entry_suggested_percent: 20, entry_min_percent: 15, rate: 2.0 },
 ];
+
+/** Migra registros antigos (entry_percent) para o novo formato. */
+function normalizeTier(t: Partial<ScoreTier> & { entry_percent?: number }): ScoreTier {
+  const min_pct = t.entry_min_percent ?? t.entry_percent ?? 0;
+  const sug_pct = t.entry_suggested_percent ?? t.entry_percent ?? min_pct;
+  return {
+    min: t.min ?? 0,
+    max: t.max ?? 0,
+    entry_suggested_percent: sug_pct,
+    entry_min_percent: min_pct,
+    rate: t.rate ?? 0,
+  };
+}
 
 export default function Configuracoes() {
   const [s, setS] = useState<Settings | null>(null);
@@ -32,7 +45,8 @@ export default function Configuracoes() {
   useEffect(() => {
     supabase.from("settings").select("*").limit(1).maybeSingle().then(({ data }) => {
       if (data) {
-        const tiers = (data.score_tiers as unknown as ScoreTier[]) ?? [];
+        const raw = (data.score_tiers as unknown as Array<Partial<ScoreTier> & { entry_percent?: number }>) ?? [];
+        const tiers = raw.map(normalizeTier);
         setS({
           id: data.id,
           min_score: data.min_score,
@@ -61,15 +75,22 @@ export default function Configuracoes() {
     const min = last ? last.max + 1 : 0;
     setField("score_tiers", [
       ...s.score_tiers,
-      { min, max: Math.max(min + 99, 1000), entry_percent: 15, rate: 2.0 },
+      { min, max: Math.max(min + 99, 1000), entry_suggested_percent: 20, entry_min_percent: 15, rate: 2.0 },
     ]);
   };
 
   const save = async () => {
-    // validações
     for (const t of s.score_tiers) {
-      if (t.min < 0 || t.max < t.min || t.entry_percent < 0 || t.entry_percent > 100 || t.rate < 0) {
-        toast.error("Faixa inválida", { description: `Faixa ${t.min}-${t.max}` });
+      if (
+        t.min < 0 || t.max < t.min ||
+        t.entry_suggested_percent < 0 || t.entry_suggested_percent > 100 ||
+        t.entry_min_percent < 0 || t.entry_min_percent > 100 ||
+        t.entry_suggested_percent < t.entry_min_percent ||
+        t.rate < 0
+      ) {
+        toast.error("Faixa inválida", {
+          description: `Faixa ${t.min}-${t.max}: a entrada sugerida deve ser ≥ entrada mínima e todos os valores entre 0 e 100.`,
+        });
         return;
       }
     }
@@ -92,7 +113,7 @@ export default function Configuracoes() {
     <AppLayout>
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-        <p className="text-muted-foreground">Regras de aprovação, entrada mínima e juros por faixa de score</p>
+        <p className="text-muted-foreground">Regras de aprovação, entrada e juros por faixa de score</p>
       </header>
 
       <div className="grid gap-6">
@@ -129,7 +150,9 @@ export default function Configuracoes() {
               <div>
                 <h2 className="text-lg font-semibold">Faixas de score</h2>
                 <p className="text-sm text-muted-foreground">
-                  Para cada faixa: % mínima de entrada e taxa de juros mensal aplicada ao valor financiado.
+                  Para cada faixa: entrada <strong>sugerida</strong> (mostrada ao vendedor),
+                  entrada <strong>mínima</strong> (oculta — sistema bloqueia se vendedor tentar valor menor)
+                  e taxa de juros mensal.
                 </p>
               </div>
               <Button onClick={addTier} variant="outline" size="sm">
@@ -138,16 +161,19 @@ export default function Configuracoes() {
             </div>
 
             <div className="overflow-x-auto">
-              <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground">
+              <div className="grid grid-cols-[1fr_1fr_1.2fr_1.2fr_1fr_auto] gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground">
                 <div>Score mín.</div>
                 <div>Score máx.</div>
-                <div>Entrada (%)</div>
+                <div>Entrada sugerida (%)</div>
+                <div className="flex items-center gap-1">
+                  <EyeOff className="h-3 w-3" />Entrada mínima (%)
+                </div>
                 <div>Juros (% a.m.)</div>
                 <div></div>
               </div>
               <div className="space-y-2">
                 {s.score_tiers.map((t, idx) => (
-                  <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] items-center gap-2 rounded-lg border bg-card p-2">
+                  <div key={idx} className="grid grid-cols-[1fr_1fr_1.2fr_1.2fr_1fr_auto] items-center gap-2 rounded-lg border bg-card p-2">
                     <Input
                       type="number"
                       value={t.min}
@@ -161,8 +187,14 @@ export default function Configuracoes() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={t.entry_percent}
-                      onChange={(e) => updateTier(idx, { entry_percent: parseFloat(e.target.value || "0") })}
+                      value={t.entry_suggested_percent}
+                      onChange={(e) => updateTier(idx, { entry_suggested_percent: parseFloat(e.target.value || "0") })}
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={t.entry_min_percent}
+                      onChange={(e) => updateTier(idx, { entry_min_percent: parseFloat(e.target.value || "0") })}
                     />
                     <Input
                       type="number"
@@ -179,9 +211,9 @@ export default function Configuracoes() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Exemplo: faixa <strong>101–299</strong> com entrada <strong>35%</strong> e juros <strong>4%</strong> a.m.
-              significa que clientes nessa faixa precisam dar pelo menos 35% do valor da venda como entrada e o
-              restante é parcelado a 4% ao mês (Tabela Price).
+              Exemplo: faixa <strong>501–600</strong> com sugerida <strong>25%</strong>, mínima <strong>20%</strong> e juros <strong>2,5%</strong> a.m. —
+              o vendedor verá a sugestão de 25% e poderá reduzir até 20%; abaixo disso o sistema bloqueia.
+              A entrada mínima nunca aparece para o vendedor.
             </p>
           </CardContent>
         </Card>
