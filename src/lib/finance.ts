@@ -3,8 +3,12 @@
 export interface ScoreTier {
   min: number;
   max: number;
-  entry_percent: number; // % mínima de entrada exigida nessa faixa
-  rate: number;          // taxa de juros mensal (%) aplicada nessa faixa
+  /** % de entrada SUGERIDA (visível ao vendedor) */
+  entry_suggested_percent: number;
+  /** % de entrada MÍNIMA (oculta — usada apenas para validação) */
+  entry_min_percent: number;
+  /** taxa de juros mensal (%) aplicada nessa faixa */
+  rate: number;
 }
 
 export interface SettingsLite {
@@ -25,14 +29,15 @@ export function brl(n: number): string {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-/** Tabela Price: PMT = PV * i * (1+i)^n / ((1+i)^n - 1)
- *  Equivalente a PV * i / (1 - (1+i)^-n) */
+/** Tabela Price com TETO no R$ inteiro (igual à planilha: =TETO(-PGTO(...);1))
+ *  PMT = PV * i * (1+i)^n / ((1+i)^n - 1), arredondado pra cima. */
 export function pricePmt(pv: number, monthlyRatePct: number, n: number): number {
   if (n <= 0) return 0;
   const i = monthlyRatePct / 100;
-  if (i === 0) return pv / n;
+  if (i === 0) return Math.ceil(pv / n);
   const f = Math.pow(1 + i, n);
-  return (pv * i * f) / (f - 1);
+  const raw = (pv * i * f) / (f - 1);
+  return Math.ceil(raw);
 }
 
 export interface AmortRow {
@@ -43,7 +48,7 @@ export interface AmortRow {
   saldo: number;
 }
 
-/** Gera a tabela de amortização (Sistema Price) mês a mês. */
+/** Tabela de amortização (Sistema Price) mês a mês, com parcela arredondada. */
 export function amortizationSchedule(pv: number, monthlyRatePct: number, n: number): AmortRow[] {
   const rows: AmortRow[] = [];
   if (pv <= 0 || n <= 0) return rows;
@@ -53,16 +58,14 @@ export function amortizationSchedule(pv: number, monthlyRatePct: number, n: numb
   for (let m = 1; m <= n; m++) {
     const juros = saldo * i;
     let amort = pmt - juros;
-    // Ajuste de arredondamento na última parcela
-    if (m === n) amort = saldo;
+    let parcela = pmt;
+    if (m === n) {
+      // última parcela quita o saldo (ajuste de centavos do arredondamento)
+      amort = saldo;
+      parcela = juros + amort;
+    }
     saldo = Math.max(saldo - amort, 0);
-    rows.push({
-      mes: m,
-      parcela: m === n ? juros + amort : pmt,
-      juros,
-      amortizacao: amort,
-      saldo,
-    });
+    rows.push({ mes: m, parcela, juros, amortizacao: amort, saldo });
   }
   return rows;
 }
@@ -73,16 +76,18 @@ export function tierForScore(score: number, settings: SettingsLite): ScoreTier |
   return tiers.find((t) => score >= t.min && score <= t.max) ?? null;
 }
 
-/** Entrada mínima em R$ baseada na faixa do score. */
+/** Entrada mínima em R$ (oculta — usada para validação). */
 export function minEntryForScore(total: number, score: number, settings: SettingsLite): number {
   const tier = tierForScore(score, settings);
   if (!tier) return total;
-  return total * (tier.entry_percent / 100);
+  return total * (tier.entry_min_percent / 100);
 }
 
-/** Entrada sugerida = exatamente o mínimo da faixa (operador pode aumentar). */
+/** Entrada sugerida em R$ (visível ao vendedor). */
 export function suggestedEntry(total: number, score: number, settings: SettingsLite): number {
-  return minEntryForScore(total, score, settings);
+  const tier = tierForScore(score, settings);
+  if (!tier) return total;
+  return total * (tier.entry_suggested_percent / 100);
 }
 
 /** Taxa de juros mensal (%) baseada na faixa do score. */
