@@ -39,11 +39,25 @@ export default function Consulta() {
 
   useEffect(() => {
     supabase.from("settings").select("*").limit(1).maybeSingle().then(({ data }) => {
-      if (data) setSettings({
-        min_score: data.min_score,
-        max_installments: data.max_installments,
-        score_tiers: (data.score_tiers as unknown as ScoreTier[]) ?? [],
-      });
+      if (data) {
+        const raw = (data.score_tiers as unknown as Array<Partial<ScoreTier> & { entry_percent?: number }>) ?? [];
+        const tiers: ScoreTier[] = raw.map((t) => {
+          const min_pct = t.entry_min_percent ?? t.entry_percent ?? 0;
+          const sug_pct = t.entry_suggested_percent ?? t.entry_percent ?? min_pct;
+          return {
+            min: t.min ?? 0,
+            max: t.max ?? 0,
+            entry_suggested_percent: sug_pct,
+            entry_min_percent: min_pct,
+            rate: t.rate ?? 0,
+          };
+        });
+        setSettings({
+          min_score: data.min_score,
+          max_installments: data.max_installments,
+          score_tiers: tiers,
+        });
+      }
     });
   }, []);
 
