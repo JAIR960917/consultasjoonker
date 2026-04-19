@@ -14,6 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      branding: {
+        Row: {
+          accent: string
+          accent_foreground: string
+          app_name: string
+          background: string
+          border: string
+          card: string
+          card_foreground: string
+          destructive: string
+          destructive_foreground: string
+          foreground: string
+          id: string
+          logo_url: string | null
+          muted: string
+          muted_foreground: string
+          primary_color: string
+          primary_foreground: string
+          secondary: string
+          secondary_foreground: string
+          sidebar_accent: string
+          sidebar_accent_foreground: string
+          sidebar_background: string
+          sidebar_border: string
+          sidebar_foreground: string
+          success: string
+          success_foreground: string
+          updated_at: string
+          warning: string
+          warning_foreground: string
+        }
+        Insert: {
+          accent?: string
+          accent_foreground?: string
+          app_name?: string
+          background?: string
+          border?: string
+          card?: string
+          card_foreground?: string
+          destructive?: string
+          destructive_foreground?: string
+          foreground?: string
+          id?: string
+          logo_url?: string | null
+          muted?: string
+          muted_foreground?: string
+          primary_color?: string
+          primary_foreground?: string
+          secondary?: string
+          secondary_foreground?: string
+          sidebar_accent?: string
+          sidebar_accent_foreground?: string
+          sidebar_background?: string
+          sidebar_border?: string
+          sidebar_foreground?: string
+          success?: string
+          success_foreground?: string
+          updated_at?: string
+          warning?: string
+          warning_foreground?: string
+        }
+        Update: {
+          accent?: string
+          accent_foreground?: string
+          app_name?: string
+          background?: string
+          border?: string
+          card?: string
+          card_foreground?: string
+          destructive?: string
+          destructive_foreground?: string
+          foreground?: string
+          id?: string
+          logo_url?: string | null
+          muted?: string
+          muted_foreground?: string
+          primary_color?: string
+          primary_foreground?: string
+          secondary?: string
+          secondary_foreground?: string
+          sidebar_accent?: string
+          sidebar_accent_foreground?: string
+          sidebar_background?: string
+          sidebar_border?: string
+          sidebar_foreground?: string
+          success?: string
+          success_foreground?: string
+          updated_at?: string
+          warning?: string
+          warning_foreground?: string
+        }
+        Relationships: []
+      }
       consultas: {
         Row: {
           cpf: string
