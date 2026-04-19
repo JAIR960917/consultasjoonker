@@ -33,33 +33,9 @@ export interface Branding {
 
 // Mapeamento campo da tabela -> nome da CSS var
 export const COLOR_FIELDS: { key: keyof Branding; cssVar: string; label: string; group: string }[] = [
-  { key: "background", cssVar: "--background", label: "Fundo geral", group: "Base" },
-  { key: "foreground", cssVar: "--foreground", label: "Texto principal", group: "Base" },
-  { key: "card", cssVar: "--card", label: "Fundo de cards", group: "Base" },
-  { key: "card_foreground", cssVar: "--card-foreground", label: "Texto em cards", group: "Base" },
-  { key: "border", cssVar: "--border", label: "Bordas", group: "Base" },
-  { key: "muted", cssVar: "--muted", label: "Fundo discreto", group: "Base" },
-  { key: "muted_foreground", cssVar: "--muted-foreground", label: "Texto discreto", group: "Base" },
-
-  { key: "primary_color", cssVar: "--primary", label: "Primária", group: "Ações" },
-  { key: "primary_foreground", cssVar: "--primary-foreground", label: "Texto sobre primária", group: "Ações" },
-  { key: "secondary", cssVar: "--secondary", label: "Secundária", group: "Ações" },
-  { key: "secondary_foreground", cssVar: "--secondary-foreground", label: "Texto sobre secundária", group: "Ações" },
-  { key: "accent", cssVar: "--accent", label: "Destaque (accent)", group: "Ações" },
-  { key: "accent_foreground", cssVar: "--accent-foreground", label: "Texto sobre destaque", group: "Ações" },
-
-  { key: "sidebar_background", cssVar: "--sidebar-background", label: "Fundo da sidebar", group: "Sidebar" },
-  { key: "sidebar_foreground", cssVar: "--sidebar-foreground", label: "Texto da sidebar", group: "Sidebar" },
-  { key: "sidebar_accent", cssVar: "--sidebar-accent", label: "Item ativo da sidebar", group: "Sidebar" },
-  { key: "sidebar_accent_foreground", cssVar: "--sidebar-accent-foreground", label: "Texto do item ativo", group: "Sidebar" },
-  { key: "sidebar_border", cssVar: "--sidebar-border", label: "Bordas da sidebar", group: "Sidebar" },
-
-  { key: "destructive", cssVar: "--destructive", label: "Destrutiva (erros)", group: "Estado" },
-  { key: "destructive_foreground", cssVar: "--destructive-foreground", label: "Texto destrutiva", group: "Estado" },
-  { key: "success", cssVar: "--success", label: "Sucesso", group: "Estado" },
-  { key: "success_foreground", cssVar: "--success-foreground", label: "Texto sucesso", group: "Estado" },
-  { key: "warning", cssVar: "--warning", label: "Aviso", group: "Estado" },
-  { key: "warning_foreground", cssVar: "--warning-foreground", label: "Texto aviso", group: "Estado" },
+  { key: "background", cssVar: "--background", label: "Fundo", group: "Cores" },
+  { key: "primary_color", cssVar: "--primary", label: "Primária", group: "Cores" },
+  { key: "secondary", cssVar: "--secondary", label: "Secundária", group: "Cores" },
 ];
 
 // ---------- Conversores HEX <-> HSL ----------
