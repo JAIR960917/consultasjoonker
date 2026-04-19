@@ -4,10 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2, EyeOff } from "lucide-react";
 import type { ScoreTier } from "@/lib/finance";
+import { BrandingTab } from "@/components/BrandingTab";
 
 interface Settings {
   id: string;
@@ -113,117 +115,130 @@ export default function Configuracoes() {
     <AppLayout>
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-        <p className="text-muted-foreground">Regras de aprovação, entrada e juros por faixa de score</p>
+        <p className="text-muted-foreground">Regras de negócio e personalização visual</p>
       </header>
 
-      <div className="grid gap-6">
-        <Card className="shadow-card">
-          <CardContent className="p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Critérios gerais</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Score mínimo para financiar</Label>
-                <Input
-                  type="number"
-                  value={s.min_score}
-                  onChange={(e) => setField("min_score", parseInt(e.target.value || "0"))}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Abaixo deste score a venda só pode ser à vista (entrada 100%).
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>Parcelas máximas</Label>
-                <Input
-                  type="number"
-                  value={s.max_installments}
-                  onChange={(e) => setField("max_installments", parseInt(e.target.value || "0"))}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="regras">
+        <TabsList>
+          <TabsTrigger value="regras">Regras</TabsTrigger>
+          <TabsTrigger value="marca">Marca</TabsTrigger>
+        </TabsList>
 
-        <Card className="shadow-card">
-          <CardContent className="p-6 space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold">Faixas de score</h2>
-                <p className="text-sm text-muted-foreground">
-                  Para cada faixa: entrada <strong>sugerida</strong> (mostrada ao vendedor),
-                  entrada <strong>mínima</strong> (oculta — sistema bloqueia se vendedor tentar valor menor)
-                  e taxa de juros mensal.
-                </p>
-              </div>
-              <Button onClick={addTier} variant="outline" size="sm">
-                <Plus className="mr-1 h-4 w-4" />Nova faixa
-              </Button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <div className="grid grid-cols-[1fr_1fr_1.2fr_1.2fr_1fr_auto] gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground">
-                <div>Score mín.</div>
-                <div>Score máx.</div>
-                <div>Entrada sugerida (%)</div>
-                <div className="flex items-center gap-1">
-                  <EyeOff className="h-3 w-3" />Entrada mínima (%)
-                </div>
-                <div>Juros (% a.m.)</div>
-                <div></div>
-              </div>
-              <div className="space-y-2">
-                {s.score_tiers.map((t, idx) => (
-                  <div key={idx} className="grid grid-cols-[1fr_1fr_1.2fr_1.2fr_1fr_auto] items-center gap-2 rounded-lg border bg-card p-2">
+        <TabsContent value="regras" className="mt-6">
+          <div className="grid gap-6">
+            <Card className="shadow-card">
+              <CardContent className="p-6 space-y-4">
+                <h2 className="text-lg font-semibold">Critérios gerais</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Score mínimo para financiar</Label>
                     <Input
                       type="number"
-                      value={t.min}
-                      onChange={(e) => updateTier(idx, { min: parseInt(e.target.value || "0") })}
+                      value={s.min_score}
+                      onChange={(e) => setField("min_score", parseInt(e.target.value || "0"))}
                     />
-                    <Input
-                      type="number"
-                      value={t.max}
-                      onChange={(e) => updateTier(idx, { max: parseInt(e.target.value || "0") })}
-                    />
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={t.entry_suggested_percent}
-                      onChange={(e) => updateTier(idx, { entry_suggested_percent: parseFloat(e.target.value || "0") })}
-                    />
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={t.entry_min_percent}
-                      onChange={(e) => updateTier(idx, { entry_min_percent: parseFloat(e.target.value || "0") })}
-                    />
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={t.rate}
-                      onChange={(e) => updateTier(idx, { rate: parseFloat(e.target.value || "0") })}
-                    />
-                    <Button variant="ghost" size="icon" onClick={() => removeTier(idx)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Abaixo deste score a venda só pode ser à vista (entrada 100%).
+                    </p>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="space-y-2">
+                    <Label>Parcelas máximas</Label>
+                    <Input
+                      type="number"
+                      value={s.max_installments}
+                      onChange={(e) => setField("max_installments", parseInt(e.target.value || "0"))}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            <p className="text-xs text-muted-foreground">
-              Exemplo: faixa <strong>501–600</strong> com sugerida <strong>25%</strong>, mínima <strong>20%</strong> e juros <strong>2,5%</strong> a.m. —
-              o vendedor verá a sugestão de 25% e poderá reduzir até 20%; abaixo disso o sistema bloqueia.
-              A entrada mínima nunca aparece para o vendedor.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <Card className="shadow-card">
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">Faixas de score</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Para cada faixa: entrada <strong>sugerida</strong> (mostrada ao vendedor),
+                      entrada <strong>mínima</strong> (oculta — sistema bloqueia se vendedor tentar valor menor)
+                      e taxa de juros mensal.
+                    </p>
+                  </div>
+                  <Button onClick={addTier} variant="outline" size="sm">
+                    <Plus className="mr-1 h-4 w-4" />Nova faixa
+                  </Button>
+                </div>
 
-      <div className="mt-6 flex justify-end">
-        <Button onClick={save} disabled={saving} size="lg" className="bg-gradient-primary">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar configurações"}
-        </Button>
-      </div>
+                <div className="overflow-x-auto">
+                  <div className="grid grid-cols-[1fr_1fr_1.2fr_1.2fr_1fr_auto] gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground">
+                    <div>Score mín.</div>
+                    <div>Score máx.</div>
+                    <div>Entrada sugerida (%)</div>
+                    <div className="flex items-center gap-1">
+                      <EyeOff className="h-3 w-3" />Entrada mínima (%)
+                    </div>
+                    <div>Juros (% a.m.)</div>
+                    <div></div>
+                  </div>
+                  <div className="space-y-2">
+                    {s.score_tiers.map((t, idx) => (
+                      <div key={idx} className="grid grid-cols-[1fr_1fr_1.2fr_1.2fr_1fr_auto] items-center gap-2 rounded-lg border bg-card p-2">
+                        <Input
+                          type="number"
+                          value={t.min}
+                          onChange={(e) => updateTier(idx, { min: parseInt(e.target.value || "0") })}
+                        />
+                        <Input
+                          type="number"
+                          value={t.max}
+                          onChange={(e) => updateTier(idx, { max: parseInt(e.target.value || "0") })}
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={t.entry_suggested_percent}
+                          onChange={(e) => updateTier(idx, { entry_suggested_percent: parseFloat(e.target.value || "0") })}
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={t.entry_min_percent}
+                          onChange={(e) => updateTier(idx, { entry_min_percent: parseFloat(e.target.value || "0") })}
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={t.rate}
+                          onChange={(e) => updateTier(idx, { rate: parseFloat(e.target.value || "0") })}
+                        />
+                        <Button variant="ghost" size="icon" onClick={() => removeTier(idx)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Exemplo: faixa <strong>501–600</strong> com sugerida <strong>25%</strong>, mínima <strong>20%</strong> e juros <strong>2,5%</strong> a.m. —
+                  o vendedor verá a sugestão de 25% e poderá reduzir até 20%; abaixo disso o sistema bloqueia.
+                  A entrada mínima nunca aparece para o vendedor.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <Button onClick={save} disabled={saving} size="lg" className="bg-gradient-primary">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar configurações"}
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="marca" className="mt-6">
+          <BrandingTab />
+        </TabsContent>
+      </Tabs>
     </AppLayout>
   );
 }
