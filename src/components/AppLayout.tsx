@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranding } from "@/contexts/BrandingContext";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet,
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, role, signOut } = useAuth();
+  const { branding } = useBranding();
   const nav = useNavigate();
 
   const items = [
@@ -23,11 +25,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground">
         <div className="px-6 py-6 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-accent shadow-glow">
-              <Wallet className="h-5 w-5 text-accent-foreground" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-accent shadow-glow overflow-hidden">
+              {branding?.logo_url ? (
+                <img src={branding.logo_url} alt={branding.app_name} className="h-full w-full object-contain" />
+              ) : (
+                <Wallet className="h-5 w-5 text-accent-foreground" />
+              )}
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight">CrediFlow</h1>
+              <h1 className="text-lg font-bold tracking-tight">{branding?.app_name ?? "CrediFlow"}</h1>
               <p className="text-[10px] uppercase tracking-widest text-sidebar-foreground/60">Crédito inteligente</p>
             </div>
           </div>
