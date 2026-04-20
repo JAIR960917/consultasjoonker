@@ -27,6 +27,10 @@ export type Database = {
           destructive_foreground: string
           foreground: string
           id: string
+          login_badge: string
+          login_subtitle: string
+          login_tagline: string
+          login_title: string
           logo_url: string | null
           muted: string
           muted_foreground: string
@@ -57,6 +61,10 @@ export type Database = {
           destructive_foreground?: string
           foreground?: string
           id?: string
+          login_badge?: string
+          login_subtitle?: string
+          login_tagline?: string
+          login_title?: string
           logo_url?: string | null
           muted?: string
           muted_foreground?: string
@@ -87,6 +95,10 @@ export type Database = {
           destructive_foreground?: string
           foreground?: string
           id?: string
+          login_badge?: string
+          login_subtitle?: string
+          login_tagline?: string
+          login_title?: string
           logo_url?: string | null
           muted?: string
           muted_foreground?: string
