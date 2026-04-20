@@ -60,16 +60,12 @@ export function buildContractPdf(d: PdfData): jsPDF {
   doc.line(margin, sigY, margin + colWidth, sigY);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text(d.clientName, margin + colWidth / 2, sigY + 14, { align: "center" });
+  doc.text("Assinatura do emitente", margin + colWidth / 2, sigY + 14, { align: "center" });
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(`CPF: ${d.clientCpf}`, margin + colWidth / 2, sigY + 28, { align: "center" });
-  doc.setTextColor(120);
-  doc.text("CONTRATANTE", margin + colWidth / 2, sigY + 42, { align: "center" });
-  doc.setTextColor(0);
   if (d.signedAt) {
     doc.setTextColor(20, 130, 60);
-    doc.text(`✓ Assinado em ${d.signedAt}`, margin + colWidth / 2, sigY + 58, { align: "center" });
+    doc.setFontSize(9);
+    doc.text(`✓ Assinado em ${d.signedAt}`, margin + colWidth / 2, sigY + 30, { align: "center" });
     doc.setTextColor(0);
   }
 
