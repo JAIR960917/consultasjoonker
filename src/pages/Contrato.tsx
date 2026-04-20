@@ -4,13 +4,18 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck, Trash2 } from "lucide-react";
 import { maskCpf, brl } from "@/lib/finance";
 import { downloadContractPdf } from "@/lib/pdf";
 import { SignatureMockDialog } from "@/components/SignatureMockDialog";
 import { ParcelasContrato } from "@/components/ParcelasContrato";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ContractRow {
   id: string;
@@ -44,11 +49,28 @@ interface TemplateRow {
 export default function Contrato() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
+  const { role } = useAuth();
   const [c, setC] = useState<ContractRow | null>(null);
   const [tpl, setTpl] = useState<TemplateRow | null>(null);
   const [venda, setVenda] = useState<VendaInfo | null>(null);
   const [signing, setSigning] = useState(false);
   const [signDialog, setSignDialog] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!c) return;
+    setDeleting(true);
+    await supabase.from("parcelas").delete().eq("contrato_id", c.id);
+    const { error } = await supabase.from("contracts").delete().eq("id", c.id);
+    setDeleting(false);
+    if (error) {
+      toast.error("Erro ao excluir contrato", { description: error.message });
+      return;
+    }
+    toast.success("Contrato excluído");
+    nav("/contratos");
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -186,6 +208,16 @@ export default function Contrato() {
             <FileDown className="mr-2 h-4 w-4" /> Baixar cópia
           </Button>
 
+          {role === "admin" && (
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialog(true)}
+              className="border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Excluir
+            </Button>
+          )}
+
           {assinado && (
             <TooltipProvider>
               <Tooltip>
@@ -295,6 +327,28 @@ export default function Contrato() {
         status={assinado ? "assinado" : "aguardando_assinatura"}
         onSimulateSign={!assinado ? handleSimulateSign : undefined}
       />
+
+      <AlertDialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contrato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é permanente. O contrato e todas as parcelas relacionadas serão removidos.
+              Boletos já emitidos no Cora não serão cancelados automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
