@@ -13,6 +13,8 @@ interface TemplateRow {
   id: string;
   title: string;
   company_name: string;
+  company_cnpj: string;
+  company_address: string;
   content: string;
 }
 
@@ -22,6 +24,8 @@ const SAMPLE = {
   endereco: "Rua Exemplo, 123, Centro, Cidade - UF, 00000-000",
   telefone: "(11) 91234-5678",
   empresa: "Sua Empresa",
+  empresa_cnpj: "00.000.000/0001-00",
+  empresa_endereco: "Rua Exemplo da Sede, 100, Centro, Cidade - UF, 00000-000",
   valor_total: "1.800,00",
   valor_entrada: "450,00",
   valor_financiado: "1.350,00",
