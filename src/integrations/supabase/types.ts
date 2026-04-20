@@ -130,6 +130,7 @@ export type Database = {
       }
       consultas: {
         Row: {
+          cidade: string
           cpf: string
           created_at: string
           id: string
@@ -140,6 +141,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cidade?: string
           cpf: string
           created_at?: string
           id?: string
@@ -150,6 +152,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cidade?: string
           cpf?: string
           created_at?: string
           id?: string
@@ -193,6 +196,7 @@ export type Database = {
       }
       contracts: {
         Row: {
+          cidade: string
           consulta_id: string | null
           content: string
           cpf: string
@@ -212,6 +216,7 @@ export type Database = {
           venda_id: string | null
         }
         Insert: {
+          cidade?: string
           consulta_id?: string | null
           content: string
           cpf: string
@@ -231,6 +236,7 @@ export type Database = {
           venda_id?: string | null
         }
         Update: {
+          cidade?: string
           consulta_id?: string | null
           content?: string
           cpf?: string
@@ -469,6 +475,7 @@ export type Database = {
       }
       vendas: {
         Row: {
+          cidade: string
           consulta_id: string | null
           cpf: string
           created_at: string
@@ -486,6 +493,7 @@ export type Database = {
           valor_total: number
         }
         Insert: {
+          cidade?: string
           consulta_id?: string | null
           cpf: string
           created_at?: string
@@ -503,6 +511,7 @@ export type Database = {
           valor_total: number
         }
         Update: {
+          cidade?: string
           consulta_id?: string | null
           cpf?: string
           created_at?: string

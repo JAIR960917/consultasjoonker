@@ -1,0 +1,3 @@
+ALTER TABLE public.vendas ADD COLUMN IF NOT EXISTS cidade text NOT NULL DEFAULT '';
+ALTER TABLE public.consultas ADD COLUMN IF NOT EXISTS cidade text NOT NULL DEFAULT '';
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS cidade text NOT NULL DEFAULT '';

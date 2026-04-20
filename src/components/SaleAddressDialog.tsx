@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { maskPhone } from "@/lib/contract";
 
 export interface AddressData {
   endereco: string;
   telefone: string;
   primeiroVencimento: string; // ISO yyyy-mm-dd
+  cidade: string;
 }
 
 interface Props {
@@ -20,16 +22,19 @@ interface Props {
   /** Chamado quando o vendedor confirma os dados (após dialog de confirmação). */
   onConfirm: (data: AddressData) => void;
   clienteNome?: string;
+  /** Cidade padrão (do usuário logado) — usada quando nenhuma seleção é exigida. */
+  cidadePadrao?: string;
+  /** Quando preenchido, exibe seletor de cidade (admin). */
+  cidadesDisponiveis?: string[];
 }
 
-/**
- * Fluxo em dois passos: 1) coleta endereço/telefone, 2) confirmação.
- */
-export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }: Props) {
+export function SaleAddressDialog({
+  open, onOpenChange, onConfirm, clienteNome, cidadePadrao, cidadesDisponiveis,
+}: Props) {
   const [step, setStep] = useState<"form" | "confirm">("form");
   const [endereco, setEndereco] = useState("");
   const [telefone, setTelefone] = useState("");
-  // default: 30 dias a partir de hoje
+  const [cidade, setCidade] = useState<string>(cidadePadrao || "");
   const defaultVenc = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -37,10 +42,13 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
   })();
   const [primeiroVencimento, setPrimeiroVencimento] = useState<string>(defaultVenc);
 
+  const mostrarSeletorCidade = !!cidadesDisponiveis && cidadesDisponiveis.length > 0;
+
   const reset = () => {
     setStep("form");
     setEndereco("");
     setTelefone("");
+    setCidade(cidadePadrao || "");
     setPrimeiroVencimento(defaultVenc);
   };
 
@@ -49,10 +57,13 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
     onOpenChange(next);
   };
 
+  const cidadeFinal = mostrarSeletorCidade ? cidade : (cidadePadrao || "");
+
   const podeAvancar =
     endereco.trim().length >= 8 &&
     telefone.replace(/\D/g, "").length >= 10 &&
-    !!primeiroVencimento;
+    !!primeiroVencimento &&
+    (!mostrarSeletorCidade || !!cidade);
 
   const vencFmt = primeiroVencimento
     ? new Date(primeiroVencimento + "T00:00:00").toLocaleDateString("pt-BR")
@@ -71,6 +82,24 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
             </DialogHeader>
 
             <div className="space-y-4">
+              {mostrarSeletorCidade && (
+                <div className="space-y-2">
+                  <Label htmlFor="cidade">Cidade da venda</Label>
+                  <Select value={cidade} onValueChange={setCidade}>
+                    <SelectTrigger id="cidade">
+                      <SelectValue placeholder="Selecione a cidade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cidadesDisponiveis!.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Como administrador, escolha a cidade onde a venda está sendo realizada.
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="endereco">Endereço completo</Label>
                 <Textarea
@@ -118,6 +147,12 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
             </DialogHeader>
 
             <div className="rounded-lg border bg-muted/30 p-4 space-y-3 text-sm">
+              {cidadeFinal && (
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Cidade da venda</p>
+                  <p className="font-medium">{cidadeFinal}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">Endereço</p>
                 <p className="font-medium whitespace-pre-wrap">{endereco}</p>
@@ -137,7 +172,12 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
               <Button
                 className="bg-success hover:bg-success/90 text-success-foreground"
                 onClick={() => {
-                  onConfirm({ endereco: endereco.trim(), telefone, primeiroVencimento });
+                  onConfirm({
+                    endereco: endereco.trim(),
+                    telefone,
+                    primeiroVencimento,
+                    cidade: cidadeFinal,
+                  });
                   reset();
                 }}
               >

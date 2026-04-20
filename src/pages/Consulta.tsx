@@ -42,12 +42,13 @@ interface ConsultaResult {
 
 export default function Consulta() {
   const nav = useNavigate();
-  const { cidade: cidadeUsuario } = useAuth();
+  const { cidade: cidadeUsuario, role } = useAuth();
   const [cpf, setCpf] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ConsultaResult | null>(null);
   const [consultaId, setConsultaId] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsLite | null>(null);
+  const [cidadesDisponiveis, setCidadesDisponiveis] = useState<string[]>([]);
 
   // Simulação
   const [modoSimulacao, setModoSimulacao] = useState(false);
@@ -87,6 +88,22 @@ export default function Consulta() {
       }
     });
   }, []);
+
+  // Admin: carrega lista de cidades cadastradas para seleção na venda
+  useEffect(() => {
+    if (role !== "admin") return;
+    supabase.from("profiles").select("cidade").then(({ data }) => {
+      if (!data) return;
+      const unique = Array.from(
+        new Set(
+          data
+            .map((p) => (p.cidade || "").trim())
+            .filter((c) => c.length > 0),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      setCidadesDisponiveis(unique);
+    });
+  }, [role]);
 
   const total = parseFloat(valorTotal.replace(",", ".")) || 0;
   const entrada = parseFloat(valorEntrada.replace(",", ".")) || 0;
@@ -162,6 +179,7 @@ export default function Consulta() {
       const userId = u.user!.id;
 
       // 1) registra a venda
+      const cidadeVenda = (endereco.cidade || cidadeUsuario || "").trim();
       const { data: vendaIns, error: vendaErr } = await supabase
         .from("vendas")
         .insert({
@@ -177,6 +195,7 @@ export default function Consulta() {
           valor_parcela: pmt,
           valor_financiado: financiado,
           status: "aprovado",
+          cidade: cidadeVenda,
           primeiro_vencimento: endereco.primeiroVencimento || null,
         })
         .select("id")
@@ -216,7 +235,7 @@ export default function Consulta() {
         data: new Date().toLocaleDateString("pt-BR"),
         data_extenso: dataExtenso(new Date()),
         data_extenso_total: dataExtensoTotal(new Date()),
-        cidade: cidadeUsuario || "",
+        cidade: cidadeVenda,
         primeiro_vencimento: endereco.primeiroVencimento
           ? new Date(endereco.primeiroVencimento + "T00:00:00").toLocaleDateString("pt-BR")
           : "",
@@ -241,6 +260,7 @@ export default function Consulta() {
           telefone: endereco.telefone,
           content: filled,
           status: "pendente",
+          cidade: cidadeVenda,
         })
         .select("id")
         .single();
@@ -558,6 +578,8 @@ export default function Consulta() {
         onOpenChange={setAddressOpen}
         onConfirm={confirmarVendaComEndereco}
         clienteNome={result?.nome}
+        cidadePadrao={cidadeUsuario || ""}
+        cidadesDisponiveis={role === "admin" ? cidadesDisponiveis : undefined}
       />
     </AppLayout>
   );
