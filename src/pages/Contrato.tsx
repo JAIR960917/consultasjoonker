@@ -61,6 +61,29 @@ export default function Contrato() {
   const handleDelete = async () => {
     if (!c) return;
     setDeleting(true);
+
+    // Bloqueia exclusão se já existe boleto emitido (cora_invoice_id) para este contrato
+    const { data: emitidas, error: checkError } = await supabase
+      .from("parcelas")
+      .select("id, numero_parcela, cora_invoice_id, status")
+      .eq("contrato_id", c.id)
+      .not("cora_invoice_id", "is", null);
+
+    if (checkError) {
+      setDeleting(false);
+      toast.error("Erro ao verificar boletos", { description: checkError.message });
+      return;
+    }
+
+    if (emitidas && emitidas.length > 0) {
+      setDeleting(false);
+      setDeleteDialog(false);
+      toast.error("Não é possível excluir este contrato", {
+        description: `Existem ${emitidas.length} boleto(s) emitido(s) no nome do cliente. Cancele os boletos no Cora antes de excluir.`,
+      });
+      return;
+    }
+
     await supabase.from("parcelas").delete().eq("contrato_id", c.id);
     const { error } = await supabase.from("contracts").delete().eq("id", c.id);
     setDeleting(false);
