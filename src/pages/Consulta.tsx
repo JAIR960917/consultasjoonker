@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { SaleAddressDialog, type AddressData } from "@/components/SaleAddressDialog";
 import { fillTemplate, valorExtenso, dataExtenso } from "@/lib/contract";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Pendencia {
   credor: string;
@@ -41,6 +42,7 @@ interface ConsultaResult {
 
 export default function Consulta() {
   const nav = useNavigate();
+  const { cidade: cidadeUsuario } = useAuth();
   const [cpf, setCpf] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ConsultaResult | null>(null);
@@ -213,8 +215,12 @@ export default function Consulta() {
         valor_dividas_extenso: valorExtenso(somaDividas),
         data: new Date().toLocaleDateString("pt-BR"),
         data_extenso: dataExtenso(new Date()),
+        cidade: cidadeUsuario || "",
         primeiro_vencimento: endereco.primeiroVencimento
           ? new Date(endereco.primeiroVencimento + "T00:00:00").toLocaleDateString("pt-BR")
+          : "",
+        primeiro_vencimento_extenso: endereco.primeiroVencimento
+          ? dataExtenso(new Date(endereco.primeiroVencimento + "T00:00:00"))
           : "",
       });
 
