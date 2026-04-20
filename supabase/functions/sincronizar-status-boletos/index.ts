@@ -68,8 +68,34 @@ Deno.serve(async (req) => {
     const keyPem = Deno.env.get("CORA_PRIVATE_KEY");
     if (!clientId || !certPem || !keyPem) return json({ ok: false, error: "Secrets Cora ausentes" }, 500);
 
-    const httpClient = buildMtlsClient(certPem, keyPem);
-    if (!httpClient) return json({ ok: false, error: "Falha mTLS" }, 500);
+    const certCandidates = buildPemCandidates(certPem, "cert");
+    const keyCandidates = buildPemCandidates(keyPem, "key");
+    const certLooksLikeKey = /BEGIN [A-Z ]*PRIVATE KEY/.test(certPem);
+    const keyLooksLikeCert = /BEGIN CERTIFICATE/.test(keyPem);
+
+    let httpClient: Deno.HttpClient | null = null;
+    let lastErr = "";
+    const tryCreate = (cert: string, key: string) => {
+      try { return Deno.createHttpClient({ cert, key }); }
+      catch (e) { lastErr = e instanceof Error ? e.message : String(e); return null; }
+    };
+    for (const cert of certCandidates) {
+      for (const key of keyCandidates) {
+        httpClient = tryCreate(cert, key);
+        if (httpClient) break;
+      }
+      if (httpClient) break;
+    }
+    if (!httpClient && certLooksLikeKey && keyLooksLikeCert) {
+      for (const cert of keyCandidates) {
+        for (const key of certCandidates) {
+          httpClient = tryCreate(cert, key);
+          if (httpClient) break;
+        }
+        if (httpClient) break;
+      }
+    }
+    if (!httpClient) return json({ ok: false, error: `mTLS: ${lastErr || "Não foi possível decodificar o certificado"}` }, 500);
 
     const tokenResp = await fetch(CORA_TOKEN_URL, {
       method: "POST",
