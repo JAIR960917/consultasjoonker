@@ -27,8 +27,19 @@ export const AVAILABLE_VARS = [
   { key: "valor_dividas", label: "Valor total de dívidas (R$)" },
   { key: "valor_dividas_extenso", label: "Valor total de dívidas por extenso" },
   { key: "data", label: "Data atual (dd/mm/aaaa)" },
+  { key: "data_extenso", label: "Data atual por extenso" },
   { key: "primeiro_vencimento", label: "Vencimento da 1ª parcela (dd/mm/aaaa)" },
 ] as const;
+
+const MESES_PT = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+/** Converte uma data para extenso. Ex.: "20 de abril de 2026" */
+export function dataExtenso(d: Date = new Date()): string {
+  return `${d.getDate()} de ${MESES_PT[d.getMonth()]} de ${d.getFullYear()}`;
+}
 
 /** Máscara simples de telefone brasileiro: (11) 91234-5678 ou (11) 1234-5678 */
 export function maskPhone(input: string): string {

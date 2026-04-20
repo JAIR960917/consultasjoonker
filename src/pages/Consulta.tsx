@@ -20,7 +20,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { SaleAddressDialog, type AddressData } from "@/components/SaleAddressDialog";
-import { fillTemplate, valorExtenso } from "@/lib/contract";
+import { fillTemplate, valorExtenso, dataExtenso } from "@/lib/contract";
 
 interface Pendencia {
   credor: string;
@@ -212,6 +212,7 @@ export default function Consulta() {
         valor_dividas: brl(somaDividas).replace("R$", "").trim(),
         valor_dividas_extenso: valorExtenso(somaDividas),
         data: new Date().toLocaleDateString("pt-BR"),
+        data_extenso: dataExtenso(new Date()),
         primeiro_vencimento: endereco.primeiroVencimento
           ? new Date(endereco.primeiroVencimento + "T00:00:00").toLocaleDateString("pt-BR")
           : "",
