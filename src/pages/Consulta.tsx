@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { SaleAddressDialog, type AddressData } from "@/components/SaleAddressDialog";
 import { fillTemplate, valorExtenso, dataExtenso } from "@/lib/contract";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Pendencia {
   credor: string;
