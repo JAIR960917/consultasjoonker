@@ -176,7 +176,17 @@ export default function Consulta() {
       </header>
 
       <Card className="shadow-card print:hidden">
-        <CardContent className="p-6">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
+            <div>
+              <p className="text-sm font-medium">Modo simulação</p>
+              <p className="text-xs text-muted-foreground">
+                Use para simular uma venda sem consultar o Serasa (ex.: testes/treinamento).
+              </p>
+            </div>
+            <Switch checked={modoSimulacao} onCheckedChange={setModoSimulacao} />
+          </div>
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-2">
               <Label htmlFor="cpf">CPF</Label>
@@ -185,9 +195,34 @@ export default function Consulta() {
             </div>
             <Button onClick={consultar} disabled={busy || cpf.replace(/\D/g, "").length !== 11}
               size="lg" className="bg-gradient-primary">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="mr-2 h-4 w-4" />Consultar</>}
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="mr-2 h-4 w-4" />{modoSimulacao ? "Simular" : "Consultar"}</>}
             </Button>
           </div>
+
+          {modoSimulacao && (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="sim-nome">Nome completo</Label>
+                <Input id="sim-nome" placeholder="Nome do cliente" value={simNome}
+                  onChange={(e) => setSimNome(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sim-nasc">Data de nascimento</Label>
+                <Input id="sim-nasc" type="date" value={simNascimento}
+                  onChange={(e) => setSimNascimento(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sim-score">Score (0–1000)</Label>
+                <Input id="sim-score" inputMode="numeric" value={simScore}
+                  onChange={(e) => setSimScore(e.target.value.replace(/\D/g, ""))} />
+              </div>
+              <div className="sm:col-span-2 flex items-end">
+                <p className="text-xs text-muted-foreground">
+                  Dica para teste: CPF <span className="font-mono">124.036.644-21</span>, Jair Azevedo da Silva Filho, 29/03/2001.
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
