@@ -49,7 +49,7 @@ export default function Login() {
   const badge = branding?.login_badge || "";
 
   return (
-    <div className="flex min-h-screen w-full bg-gradient-hero">
+    <div className="flex min-h-screen w-full bg-background">
       {/* Lado esquerdo — usa cores da sidebar para garantir contraste em qualquer tema */}
       <div className="hidden lg:flex flex-1 flex-col justify-between p-12 bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-3">
