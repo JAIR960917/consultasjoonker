@@ -73,9 +73,21 @@ export default function Contrato() {
             .limit(1)
             .maybeSingle();
           if (vendaRow) {
+            // Fallback: tenta extrair data dd/mm/aaaa do conteúdo do contrato
+            // (o template substitui {{primeiro_vencimento}} pela data informada na venda)
+            let venc: string | null = parcela1?.vencimento ?? null;
+            if (!venc) {
+              const match = (contract as ContractRow).content.match(
+                /vencimento[^0-9]{0,40}(\d{2}\/\d{2}\/\d{4})/i,
+              );
+              if (match) {
+                const [d, m, y] = match[1].split("/");
+                venc = `${y}-${m}-${d}`;
+              }
+            }
             setVenda({
               valor_total: Number(vendaRow.valor_total),
-              primeiro_vencimento: parcela1?.vencimento ?? null,
+              primeiro_vencimento: venc,
             });
           }
         }
