@@ -263,6 +263,42 @@ export function CoraTab() {
                 Não persiste em vendas/parcelas.
               </p>
             </TabsContent>
+
+            {/* WEBHOOK */}
+            <TabsContent value="webhook" className="space-y-4 pt-4">
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm space-y-2">
+                <p className="font-semibold flex items-center gap-2">
+                  <Webhook className="h-4 w-4" /> Como funciona o webhook da Cora
+                </p>
+                <p className="text-muted-foreground">
+                  A Cora <strong>não tem painel</strong> para configurar webhooks. O cadastro é feito
+                  100% via API. Clique abaixo para registrar nosso endpoint para receber notificações
+                  de boletos <code>paid</code>, <code>canceled</code> e <code>overdue</code>.
+                </p>
+                <p className="text-muted-foreground">
+                  URL que será registrada: <code className="text-xs break-all">
+                    {`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cora-webhook`}
+                  </code>
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={registrarWebhook} disabled={loadingWebhook} size="lg">
+                  {loadingWebhook
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</>
+                    : <><Webhook className="mr-2 h-4 w-4" />Registrar webhook na Cora</>}
+                </Button>
+                <Button onClick={listarWebhooks} disabled={loadingWebhook} variant="outline" size="lg">
+                  <RefreshCw className="mr-2 h-4 w-4" /> Listar webhooks ativos
+                </Button>
+              </div>
+
+              {webhookResult !== null && (
+                <pre className="rounded-lg border bg-muted/30 p-4 text-xs overflow-auto max-h-96">
+{JSON.stringify(webhookResult, null, 2)}
+                </pre>
+              )}
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
