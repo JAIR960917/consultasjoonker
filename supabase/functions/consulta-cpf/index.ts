@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
       cpf,
       nome: serasa.nome,
       score: serasa.score,
-      status: "sucesso",
+      status: simulacao ? "simulacao" : "sucesso",
       raw: serasa.raw as never,
     });
     if (insertErr) console.error("Erro ao gravar consulta:", insertErr);
