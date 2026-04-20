@@ -525,7 +525,7 @@ export default function Consulta() {
 
                     <div className="mt-6 flex gap-3 print:hidden">
                       <Button onClick={handleRegistrarAprovada} disabled={!parcelas || savingVenda}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground">
                         {savingVenda ? <Loader2 className="h-4 w-4 animate-spin" /> : "Registrar venda aprovada"}
                       </Button>
                       <Button onClick={registrarRecusada} disabled={!parcelas || savingVenda}
