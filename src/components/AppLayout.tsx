@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, role, signOut } = useAuth();
   const { branding } = useBranding();
+  const { theme, toggle } = useTheme();
   const nav = useNavigate();
 
   const items = [
