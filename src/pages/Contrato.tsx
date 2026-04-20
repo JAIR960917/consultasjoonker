@@ -175,6 +175,11 @@ export default function Contrato() {
         clientCpf: maskCpf(c.cpf),
         content: c.content,
         signedAt: c.signed_at ? new Date(c.signed_at).toLocaleString("pt-BR") : null,
+        vencimento: venda?.primeiro_vencimento
+          ? new Date(venda.primeiro_vencimento + "T00:00:00").toLocaleDateString("pt-BR")
+          : null,
+        valorTotal: venda ? brl(venda.valor_total) : null,
+        numero: "Nº 1 DE 1",
       },
       `contrato-${c.nome.replace(/\s+/g, "_")}.pdf`,
     );
