@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
-import { maskCpf } from "@/lib/finance";
+import { maskCpf, brl } from "@/lib/finance";
 import { downloadContractPdf } from "@/lib/pdf";
 import { SignatureMockDialog } from "@/components/SignatureMockDialog";
 import { ParcelasContrato } from "@/components/ParcelasContrato";
@@ -25,6 +25,12 @@ interface ContractRow {
   signature_provider: string | null;
   signature_data: { signed_pdf_url?: string } | null;
   created_at: string;
+  venda_id: string | null;
+}
+
+interface VendaInfo {
+  valor_total: number;
+  primeiro_vencimento: string | null;
 }
 
 interface TemplateRow {
@@ -39,6 +45,7 @@ export default function Contrato() {
   const nav = useNavigate();
   const [c, setC] = useState<ContractRow | null>(null);
   const [tpl, setTpl] = useState<TemplateRow | null>(null);
+  const [venda, setVenda] = useState<VendaInfo | null>(null);
   const [signing, setSigning] = useState(false);
   const [signDialog, setSignDialog] = useState(false);
 
@@ -49,7 +56,30 @@ export default function Contrato() {
         supabase.from("contracts").select("*").eq("id", id).maybeSingle(),
         supabase.from("contract_template").select("title, company_name, company_cnpj, company_address").limit(1).maybeSingle(),
       ]);
-      if (contract) setC(contract as ContractRow);
+      if (contract) {
+        setC(contract as ContractRow);
+        if ((contract as ContractRow).venda_id) {
+          const { data: vendaRow } = await supabase
+            .from("vendas")
+            .select("valor_total")
+            .eq("id", (contract as ContractRow).venda_id!)
+            .maybeSingle();
+          // Tenta pegar a primeira parcela já criada; se não existir, fica null
+          const { data: parcela1 } = await supabase
+            .from("parcelas")
+            .select("vencimento")
+            .eq("venda_id", (contract as ContractRow).venda_id!)
+            .order("numero_parcela", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (vendaRow) {
+            setVenda({
+              valor_total: Number(vendaRow.valor_total),
+              primeiro_vencimento: parcela1?.vencimento ?? null,
+            });
+          }
+        }
+      }
       if (template) setTpl(template as TemplateRow);
     })();
   }, [id]);
@@ -196,15 +226,35 @@ export default function Contrato() {
         <div className={`h-1 ${assinado ? "bg-success" : enviado ? "bg-warning" : "bg-primary"}`} />
         <CardContent className="p-8 sm:p-12">
           <div className="mx-auto max-w-3xl">
-            <h2 className="text-2xl font-bold text-center">{tpl.title.toUpperCase()}</h2>
-            <p className="text-center text-muted-foreground mt-1 mb-8">{tpl.company_name}</p>
+            <div className="mb-8 flex items-start justify-between gap-4">
+              <div className="flex-1 text-center">
+                <h2 className="text-2xl font-bold">{tpl.title.toUpperCase()}</h2>
+                <p className="text-muted-foreground mt-1">{tpl.company_name}</p>
+              </div>
+              {venda && (
+                <div className="text-right text-xs shrink-0 border-l border-border pl-4">
+                  {venda.primeiro_vencimento && (
+                    <p>
+                      <span className="text-muted-foreground">Vencimento: </span>
+                      <span className="font-semibold">
+                        {new Date(venda.primeiro_vencimento + "T00:00:00").toLocaleDateString("pt-BR")}
+                      </span>
+                    </p>
+                  )}
+                  <p className="mt-1">
+                    <span className="text-muted-foreground">Valor total: </span>
+                    <span className="font-semibold">{brl(venda.valor_total)}</span>
+                  </p>
+                </div>
+              )}
+            </div>
 
             <article className="whitespace-pre-wrap text-sm leading-7 text-foreground">
               {c.content}
             </article>
 
-            <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-8 print:gap-12">
-              <div>
+            <div className="mt-12 flex justify-center">
+              <div className="w-full max-w-sm">
                 <div className="border-t border-foreground pt-2 text-center text-sm">
                   <p className="font-semibold">{c.nome}</p>
                   <p className="text-muted-foreground">CPF: {maskCpf(c.cpf)}</p>
@@ -215,14 +265,6 @@ export default function Contrato() {
                     ✓ Assinado em {c.signed_at ? new Date(c.signed_at).toLocaleString("pt-BR") : ""}
                   </p>
                 )}
-              </div>
-              <div>
-                <div className="border-t border-foreground pt-2 text-center text-sm">
-                  <p className="font-semibold">{tpl.company_name}</p>
-                  {tpl.company_cnpj && <p className="text-muted-foreground">CNPJ: {tpl.company_cnpj}</p>}
-                  {tpl.company_address && <p className="text-xs text-muted-foreground">{tpl.company_address}</p>}
-                  <p className="text-xs text-muted-foreground mt-1">CONTRATADO</p>
-                </div>
               </div>
             </div>
           </div>
