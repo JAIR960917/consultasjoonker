@@ -45,6 +45,12 @@ export const COLOR_FIELDS: { key: keyof Branding; cssVar: string; label: string;
   { key: "accent_foreground", cssVar: "--accent-foreground", label: "Texto do destaque", group: "Botões" },
   { key: "destructive", cssVar: "--destructive", label: "Botão perigo", group: "Botões" },
   { key: "destructive_foreground", cssVar: "--destructive-foreground", label: "Texto do perigo", group: "Botões" },
+
+  { key: "sidebar_background", cssVar: "--sidebar-background", label: "Fundo da sidebar", group: "Menu lateral" },
+  { key: "sidebar_foreground", cssVar: "--sidebar-foreground", label: "Texto da sidebar", group: "Menu lateral" },
+  { key: "sidebar_accent", cssVar: "--sidebar-accent", label: "Item ativo", group: "Menu lateral" },
+  { key: "sidebar_accent_foreground", cssVar: "--sidebar-accent-foreground", label: "Texto do item ativo", group: "Menu lateral" },
+  { key: "sidebar_border", cssVar: "--sidebar-border", label: "Borda", group: "Menu lateral" },
 ];
 
 // ---------- Conversores HEX <-> HSL ----------
@@ -98,11 +104,25 @@ export function hexToHslString(hex: string): string {
 }
 
 // ---------- Aplicar tema ao DOM ----------
-function applyTheme(b: Branding) {
+function isDarkMode() {
+  return document.documentElement.classList.contains("dark");
+}
+
+function clearInlineColors() {
   const root = document.documentElement;
-  for (const f of COLOR_FIELDS) {
-    const value = b[f.key] as string;
-    if (value) root.style.setProperty(f.cssVar, value);
+  for (const f of COLOR_FIELDS) root.style.removeProperty(f.cssVar);
+}
+
+function applyBranding(b: Branding) {
+  const root = document.documentElement;
+  // Cores customizadas só valem no modo claro; no escuro usamos o tema do CSS
+  if (isDarkMode()) {
+    clearInlineColors();
+  } else {
+    for (const f of COLOR_FIELDS) {
+      const value = b[f.key] as string;
+      if (value) root.style.setProperty(f.cssVar, value);
+    }
   }
   // Favicon
   if (b.logo_url) {
@@ -134,12 +154,22 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.from("branding").select("*").limit(1).maybeSingle();
     if (data) {
       setBranding(data as Branding);
-      applyTheme(data as Branding);
+      applyBranding(data as Branding);
     }
     setLoading(false);
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Reagir à troca de tema: limpar/reaplicar inline styles
+  useEffect(() => {
+    const handler = () => {
+      if (branding) applyBranding(branding);
+      else clearInlineColors();
+    };
+    window.addEventListener("app-theme-change", handler);
+    return () => window.removeEventListener("app-theme-change", handler);
+  }, [branding]);
 
   return <Ctx.Provider value={{ branding, loading, refresh }}>{children}</Ctx.Provider>;
 }

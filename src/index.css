@@ -89,6 +89,19 @@
     --border: 217 33% 18%;
     --input: 217 33% 18%;
     --ring: 152 76% 44%;
+
+    --sidebar-background: 222 47% 4%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 152 76% 44%;
+    --sidebar-primary-foreground: 222 70% 12%;
+    --sidebar-accent: 217 33% 14%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 16%;
+    --sidebar-ring: 152 76% 44%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(152 76% 38%), hsl(152 76% 48%));
+    --gradient-accent: linear-gradient(135deg, hsl(152 76% 44%), hsl(168 76% 42%));
+    --gradient-hero: linear-gradient(135deg, hsl(222 47% 6%) 0%, hsl(222 47% 12%) 50%, hsl(168 76% 22%) 100%);
   }
 }
 
