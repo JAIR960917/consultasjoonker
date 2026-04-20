@@ -60,14 +60,14 @@ export default function Dashboard() {
       </div>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
-        <Card className="shadow-elegant bg-gradient-primary text-primary-foreground">
+        <Card className="shadow-card">
           <CardContent className="p-6">
-            <Search className="h-7 w-7 text-accent" />
+            <Search className="h-7 w-7 text-primary" />
             <h3 className="mt-4 text-xl font-semibold">Consultar CPF</h3>
-            <p className="mt-1 text-sm text-primary-foreground/80">
+            <p className="mt-1 text-sm text-muted-foreground">
               Busque dados, score e simule a venda na hora.
             </p>
-            <Button asChild className="mt-4 bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button asChild className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90">
               <Link to="/consulta">Nova consulta</Link>
             </Button>
           </CardContent>
