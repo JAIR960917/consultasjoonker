@@ -179,6 +179,7 @@ export default function Consulta() {
       const userId = u.user!.id;
 
       // 1) registra a venda
+      const cidadeVenda = (endereco.cidade || cidadeUsuario || "").trim();
       const { data: vendaIns, error: vendaErr } = await supabase
         .from("vendas")
         .insert({
@@ -575,6 +576,8 @@ export default function Consulta() {
         onOpenChange={setAddressOpen}
         onConfirm={confirmarVendaComEndereco}
         clienteNome={result?.nome}
+        cidadePadrao={cidadeUsuario || ""}
+        cidadesDisponiveis={role === "admin" ? cidadesDisponiveis : undefined}
       />
     </AppLayout>
   );
