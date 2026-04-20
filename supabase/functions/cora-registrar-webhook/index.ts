@@ -63,36 +63,56 @@ Deno.serve(async (req) => {
 
     const certCandidates = buildPemCandidates(certPem, "CERTIFICATE");
     const keyCandidates = buildPemCandidates(keyPem, "PRIVATE KEY");
-    let client: Deno.HttpClient | null = null;
+
+    // Tenta cada combinação cert/key fazendo um fetch real ao token endpoint.
+    // Deno.createHttpClient não valida na criação, então precisamos testar com fetch.
+    let accessToken: string | null = null;
     let lastErr = "";
+    let lastStatus = 0;
+    let lastBody = "";
+
     outer: for (const cert of certCandidates) {
       for (const key of keyCandidates) {
+        let client: Deno.HttpClient;
         try {
           client = Deno.createHttpClient({ cert, key });
-          break outer;
         } catch (e) {
-          lastErr = e instanceof Error ? e.message : String(e);
+          lastErr = `createHttpClient: ${e instanceof Error ? e.message : String(e)}`;
+          continue;
+        }
+        try {
+          const tokenResp = await fetch(CORA_TOKEN_URL, {
+            method: "POST",
+            // @ts-ignore
+            client,
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Accept: "application/json",
+            },
+            body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId }),
+          });
+          lastStatus = tokenResp.status;
+          const text = await tokenResp.text();
+          lastBody = text;
+          if (tokenResp.ok) {
+            const tokenJson = JSON.parse(text);
+            accessToken = tokenJson.access_token as string;
+            break outer;
+          }
+        } catch (e) {
+          lastErr = `fetch: ${e instanceof Error ? e.message : String(e)}`;
         }
       }
     }
-    if (!client) {
-      return json({ error: "Falha ao carregar certificado/chave mTLS", detail: lastErr }, 500);
-    }
 
-    // 1) Obter token
-    const tokenResp = await fetch(CORA_TOKEN_URL, {
-      method: "POST",
-      // @ts-ignore
-      client,
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId }),
-    });
-    if (!tokenResp.ok) {
-      const t = await tokenResp.text();
-      return json({ error: "Falha auth Cora", status: tokenResp.status, body: t }, 502);
+    if (!accessToken) {
+      return json({
+        error: "Falha auth Cora (mTLS)",
+        detail: lastErr,
+        status: lastStatus,
+        body: lastBody,
+        hint: "Verifique se CORA_CERTIFICATE e CORA_PRIVATE_KEY não estão invertidos e se o certificado está homologado para o ambiente de Produção.",
+      }, 502);
     }
     const tokenJson = await tokenResp.json();
     const accessToken = tokenJson.access_token as string;
