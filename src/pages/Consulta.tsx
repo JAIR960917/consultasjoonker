@@ -42,12 +42,13 @@ interface ConsultaResult {
 
 export default function Consulta() {
   const nav = useNavigate();
-  const { cidade: cidadeUsuario } = useAuth();
+  const { cidade: cidadeUsuario, role } = useAuth();
   const [cpf, setCpf] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ConsultaResult | null>(null);
   const [consultaId, setConsultaId] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsLite | null>(null);
+  const [cidadesDisponiveis, setCidadesDisponiveis] = useState<string[]>([]);
 
   // Simulação
   const [modoSimulacao, setModoSimulacao] = useState(false);
