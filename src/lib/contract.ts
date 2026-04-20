@@ -12,6 +12,8 @@ export const AVAILABLE_VARS = [
   { key: "endereco", label: "Endereço completo" },
   { key: "telefone", label: "Telefone formatado" },
   { key: "empresa", label: "Nome da empresa" },
+  { key: "empresa_cnpj", label: "CNPJ da empresa" },
+  { key: "empresa_endereco", label: "Endereço da empresa" },
   { key: "valor_total", label: "Valor total da venda" },
   { key: "valor_entrada", label: "Valor da entrada" },
   { key: "valor_financiado", label: "Valor financiado" },

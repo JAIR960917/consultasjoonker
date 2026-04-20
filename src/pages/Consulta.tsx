@@ -183,7 +183,7 @@ export default function Consulta() {
       // 2) busca modelo atual e gera o conteúdo final
       const { data: tpl, error: tplErr } = await supabase
         .from("contract_template")
-        .select("content, company_name")
+        .select("content, company_name, company_cnpj, company_address")
         .limit(1)
         .maybeSingle();
       if (tplErr) throw tplErr;
@@ -195,6 +195,8 @@ export default function Consulta() {
         endereco: endereco.endereco,
         telefone: endereco.telefone,
         empresa: tpl.company_name,
+        empresa_cnpj: tpl.company_cnpj || "",
+        empresa_endereco: tpl.company_address || "",
         valor_total: brl(total).replace("R$", "").trim(),
         valor_entrada: brl(entrada).replace("R$", "").trim(),
         valor_financiado: brl(financiado).replace("R$", "").trim(),
