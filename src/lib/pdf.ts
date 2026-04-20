@@ -67,7 +67,7 @@ export function buildContractPdf(d: PdfData): jsPDF {
     }
     if (d.valorTotal) {
       doc.setFont("helvetica", "normal");
-      doc.text(`Valor total: `, rightX - doc.getTextWidth(d.valorTotal) - 4, ry, { align: "right" });
+      doc.text(`Valor: `, rightX - doc.getTextWidth(d.valorTotal) - 4, ry, { align: "right" });
       doc.setFont("helvetica", "bold");
       doc.text(d.valorTotal, rightX, ry, { align: "right" });
     }

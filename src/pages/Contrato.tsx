@@ -295,7 +295,7 @@ export default function Contrato() {
                     </p>
                   )}
                   <p className="mt-1 !text-white">
-                    <span className="!text-white">Valor total: </span>
+                    <span className="!text-white">Valor: </span>
                     <span className="font-semibold !text-white">{brl(venda.valor_total)}</span>
                   </p>
                 </div>
