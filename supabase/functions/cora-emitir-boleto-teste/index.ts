@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     const errors: string[] = [];
     if (!nome) errors.push("nome obrigatório");
     if (cpf.length !== 11) errors.push("cpf inválido (11 dígitos)");
-    if (!Number.isFinite(valor) || valor < 1) errors.push("valor mínimo R$ 1,00");
+    if (!Number.isFinite(valor) || valor < 5) errors.push("valor mínimo R$ 5,00 (exigido pela Cora)");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(vencimento)) errors.push("vencimento deve ser YYYY-MM-DD");
     if (errors.length) return json({ ok: false, error: errors.join("; ") }, 400);
 
