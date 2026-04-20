@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Loader2, Receipt, Copy, ExternalLink, RefreshCw, Zap } from "lucide-react";
-import { formatBRL } from "@/lib/finance";
+import { brl } from "@/lib/finance";
 
 interface Parcela {
   id: string;
