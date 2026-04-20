@@ -8,12 +8,12 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const CORA_TOKEN_URL = "https://matls-clients.api.cora.com.br/token";
 const CORA_ENDPOINTS_URL = "https://matls-clients.api.cora.com.br/endpoints/";
 
-// URL do nosso webhook que receberá as notificações
 const WEBHOOK_URL = `${Deno.env.get("SUPABASE_URL")}/functions/v1/cora-webhook`;
 
 Deno.serve(async (req) => {
@@ -61,100 +61,85 @@ Deno.serve(async (req) => {
       return json({ error: "Secrets da Cora não configurados" }, 400);
     }
 
-    const certCandidates = buildPemCandidates(certPem, "CERTIFICATE");
-    const keyCandidates = buildPemCandidates(keyPem, "PRIVATE KEY");
+    // Normaliza PEMs (lida com \\n escapado)
+    const cert = normalizePem(certPem, "CERTIFICATE");
+    const key = normalizePem(keyPem, "PRIVATE KEY");
 
-    // Tenta cada combinação cert/key fazendo um fetch real ao token endpoint.
-    // Deno.createHttpClient não valida na criação, então precisamos testar com fetch.
-    let accessToken: string | null = null;
-    let lastErr = "";
-    let lastStatus = 0;
-    let lastBody = "";
-
-    outer: for (const cert of certCandidates) {
-      for (const key of keyCandidates) {
-        let client: Deno.HttpClient;
-        try {
-          client = Deno.createHttpClient({ cert, key });
-        } catch (e) {
-          lastErr = `createHttpClient: ${e instanceof Error ? e.message : String(e)}`;
-          continue;
-        }
-        try {
-          const tokenResp = await fetch(CORA_TOKEN_URL, {
-            method: "POST",
-            // @ts-ignore
-            client,
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              Accept: "application/json",
-            },
-            body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId }),
-          });
-          lastStatus = tokenResp.status;
-          const text = await tokenResp.text();
-          lastBody = text;
-          if (tokenResp.ok) {
-            const tokenJson = JSON.parse(text);
-            accessToken = tokenJson.access_token as string;
-            break outer;
-          }
-        } catch (e) {
-          lastErr = `fetch: ${e instanceof Error ? e.message : String(e)}`;
-        }
-      }
-    }
-
-    if (!accessToken) {
+    let httpClient: Deno.HttpClient;
+    try {
+      httpClient = Deno.createHttpClient({ cert, key });
+    } catch (e) {
       return json({
-        error: "Falha auth Cora (mTLS)",
-        detail: lastErr,
-        status: lastStatus,
-        body: lastBody,
-        hint: "Verifique se CORA_CERTIFICATE e CORA_PRIVATE_KEY não estão invertidos e se o certificado está homologado para o ambiente de Produção.",
-      }, 502);
+        error: "Falha ao criar cliente mTLS",
+        detail: e instanceof Error ? e.message : String(e),
+      }, 500);
     }
-    // Recria um client funcional para os próximos requests (cert/key já validados acima).
-    let workingClient: Deno.HttpClient | null = null;
-    outerC: for (const cert of certCandidates) {
-      for (const key of keyCandidates) {
-        try { workingClient = Deno.createHttpClient({ cert, key }); break outerC; } catch { /* ignore */ }
+
+    // 1) Obter token (com timeout de 20s)
+    let accessToken: string;
+    try {
+      const tokenResp = await fetchWithTimeout(CORA_TOKEN_URL, {
+        method: "POST",
+        // @ts-ignore
+        client: httpClient,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId }),
+      }, 20000);
+
+      const tokenText = await tokenResp.text();
+      if (!tokenResp.ok) {
+        console.error("Cora token error", tokenResp.status, tokenText);
+        return json({
+          error: "Falha auth Cora (mTLS)",
+          status: tokenResp.status,
+          body: tokenText,
+          hint: "Verifique se CORA_CERTIFICATE e CORA_PRIVATE_KEY estão corretos e homologados em Produção.",
+        }, 502);
       }
+      accessToken = JSON.parse(tokenText).access_token;
+    } catch (e) {
+      console.error("Cora token fetch failed", e);
+      return json({
+        error: "Timeout/erro ao conectar na Cora",
+        detail: e instanceof Error ? e.message : String(e),
+      }, 504);
     }
 
     // 2) Para cada trigger, registra um endpoint
     const results: Array<Record<string, unknown>> = [];
     for (const trigger of triggers) {
-      const idempotencyKey = crypto.randomUUID();
-      const resp = await fetch(CORA_ENDPOINTS_URL, {
-        method: "POST",
-        // @ts-ignore
-        client: workingClient,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify({
-          url: WEBHOOK_URL,
-          resource: "invoice",
-          trigger,
-        }),
-      });
-      const text = await resp.text();
-      let parsed: unknown = null;
       try {
-        parsed = JSON.parse(text);
-      } catch {
-        parsed = text;
+        const resp = await fetchWithTimeout(CORA_ENDPOINTS_URL, {
+          method: "POST",
+          // @ts-ignore
+          client: httpClient,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "Idempotency-Key": crypto.randomUUID(),
+          },
+          body: JSON.stringify({
+            url: WEBHOOK_URL,
+            resource: "invoice",
+            trigger,
+          }),
+        }, 20000);
+        const text = await resp.text();
+        let parsed: unknown = text;
+        try { parsed = JSON.parse(text); } catch { /* keep text */ }
+        results.push({ trigger, ok: resp.ok, status: resp.status, response: parsed });
+      } catch (e) {
+        results.push({
+          trigger,
+          ok: false,
+          status: 0,
+          response: e instanceof Error ? e.message : String(e),
+        });
       }
-      results.push({
-        trigger,
-        ok: resp.ok,
-        status: resp.status,
-        response: parsed,
-      });
     }
 
     return json({
@@ -163,8 +148,8 @@ Deno.serve(async (req) => {
       results,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return json({ error: msg }, 500);
+    console.error("cora-registrar-webhook fatal", err);
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
 
@@ -175,26 +160,28 @@ function json(data: unknown, status = 200) {
   });
 }
 
-function buildPemCandidates(raw: string, label: "CERTIFICATE" | "PRIVATE KEY"): string[] {
-  const candidates = new Set<string>();
-  const add = (s: string) => { if (s && s.includes("-----BEGIN")) candidates.add(s.endsWith("\n") ? s : s + "\n"); };
-
-  const normalized = raw.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim();
-  add(normalized);
-  add(raw.trim());
-
-  const stripped = normalized
-    .replace(/-----BEGIN [^-]+-----/g, "")
-    .replace(/-----END [^-]+-----/g, "")
-    .replace(/\s+/g, "");
-  if (stripped.length > 100) {
-    const lines: string[] = [];
-    for (let i = 0; i < stripped.length; i += 64) lines.push(stripped.slice(i, i + 64));
-    add(`-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`);
-    if (label === "PRIVATE KEY") {
-      add(`-----BEGIN RSA PRIVATE KEY-----\n${lines.join("\n")}\n-----END RSA PRIVATE KEY-----\n`);
-    }
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit & { client?: Deno.HttpClient },
+  ms: number,
+): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
   }
+}
 
-  return Array.from(candidates);
+function normalizePem(raw: string, label: "CERTIFICATE" | "PRIVATE KEY"): string {
+  let s = raw.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim();
+  if (s.includes("-----BEGIN")) {
+    return s.endsWith("\n") ? s : s + "\n";
+  }
+  // Apenas base64 — reconstrói o PEM
+  const b64 = s.replace(/\s+/g, "");
+  const lines: string[] = [];
+  for (let i = 0; i < b64.length; i += 64) lines.push(b64.slice(i, i + 64));
+  return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`;
 }
