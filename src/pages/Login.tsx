@@ -90,12 +90,6 @@ export default function Login() {
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
               </Button>
             </form>
-
-            <div className="mt-6 rounded-lg border border-dashed bg-muted/40 p-3 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">Admin padrão</p>
-              <p>jazevedosfilho@gmail.com</p>
-              <p>Senha: 12457856</p>
-            </div>
           </CardContent>
         </Card>
       </div>
