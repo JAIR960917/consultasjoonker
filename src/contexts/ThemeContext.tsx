@@ -27,6 +27,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyTheme(theme);
     localStorage.setItem(STORAGE_KEY, theme);
+    // Notifica outros contextos (ex.: Branding) para reaplicarem ou limparem cores
+    window.dispatchEvent(new CustomEvent("app-theme-change", { detail: theme }));
   }, [theme]);
 
   const setTheme = (t: Theme) => setThemeState(t);
