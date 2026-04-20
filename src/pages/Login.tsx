@@ -53,13 +53,11 @@ export default function Login() {
       {/* Lado esquerdo — usa cores da sidebar para garantir contraste em qualquer tema */}
       <div className="hidden lg:flex flex-1 flex-col justify-between p-12 bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-accent shadow-glow">
-            {branding?.logo_url ? (
-              <img src={branding.logo_url} alt={appName} className="h-7 w-7 object-contain" />
-            ) : (
-              <Wallet className="h-6 w-6 text-accent-foreground" />
-            )}
-          </div>
+          {branding?.logo_url ? (
+            <img src={branding.logo_url} alt={appName} className="h-11 w-11 object-contain" />
+          ) : (
+            <Wallet className="h-8 w-8 text-accent" />
+          )}
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{appName}</h1>
             <p className="text-xs uppercase tracking-widest opacity-70">{tagline}</p>
