@@ -24,7 +24,7 @@ export function buildContractPdf(d: PdfData): jsPDF {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 56;
+  const margin = 40;
   const usableWidth = pageWidth - margin * 2;
 
   doc.setTextColor(0, 0, 0);
