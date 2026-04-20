@@ -28,7 +28,9 @@ export const AVAILABLE_VARS = [
   { key: "valor_dividas_extenso", label: "Valor total de dívidas por extenso" },
   { key: "data", label: "Data atual (dd/mm/aaaa)" },
   { key: "data_extenso", label: "Data atual por extenso" },
+  { key: "cidade", label: "Cidade do usuário logado" },
   { key: "primeiro_vencimento", label: "Vencimento da 1ª parcela (dd/mm/aaaa)" },
+  { key: "primeiro_vencimento_extenso", label: "Vencimento da 1ª parcela por extenso" },
 ] as const;
 
 const MESES_PT = [
