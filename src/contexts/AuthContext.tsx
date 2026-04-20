@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type Role = "admin" | "operador" | null;
+type Role = "admin" | "gerente" | null;
 
 interface AuthCtx {
   session: Session | null;
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!uid) { setRole(null); return; }
     const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
     if (data?.some((r) => r.role === "admin")) setRole("admin");
-    else if (data?.some((r) => r.role === "operador")) setRole("operador");
+    else if (data?.some((r) => r.role === "gerente")) setRole("gerente");
     else setRole(null);
   };
 

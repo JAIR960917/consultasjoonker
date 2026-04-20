@@ -30,7 +30,8 @@ Deno.serve(async (req) => {
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
     const full_name = String(body.full_name || "").trim();
-    const role = body.role === "admin" ? "admin" : "operador";
+    const cidade = String(body.cidade || "").trim();
+    const role = body.role === "admin" ? "admin" : "gerente";
 
     if (!email || password.length < 6) {
       return new Response(JSON.stringify({ error: "Email e senha (>=6) obrigatórios" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -42,17 +43,17 @@ Deno.serve(async (req) => {
     );
 
     const { data: created, error } = await adminClient.auth.admin.createUser({
-      email, password, email_confirm: true, user_metadata: { full_name },
+      email, password, email_confirm: true, user_metadata: { full_name, cidade },
     });
     if (error) throw error;
 
-    // Trigger já criou perfil + role 'operador'. Se for admin, ajusta:
+    // Trigger já criou perfil + role 'gerente'. Se for admin, ajusta:
     if (role === "admin") {
       await adminClient.from("user_roles").delete().eq("user_id", created.user!.id);
       await adminClient.from("user_roles").insert({ user_id: created.user!.id, role: "admin" });
     }
-    if (full_name) {
-      await adminClient.from("profiles").update({ full_name }).eq("user_id", created.user!.id);
+    if (full_name || cidade) {
+      await adminClient.from("profiles").update({ full_name, cidade }).eq("user_id", created.user!.id);
     }
 
     return new Response(JSON.stringify({ ok: true, userId: created.user!.id }), {

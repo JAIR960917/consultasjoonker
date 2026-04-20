@@ -15,6 +15,7 @@ interface Row {
   user_id: string;
   full_name: string;
   email: string;
+  cidade: string;
   role: string;
 }
 
@@ -22,16 +23,17 @@ export default function Usuarios() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", role: "operador" });
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", cidade: "", role: "gerente" });
 
   const load = async () => {
     setLoading(true);
-    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email");
+    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email, cidade");
     const { data: roles } = await supabase.from("user_roles").select("user_id, role");
     const merged: Row[] = (profiles ?? []).map((p) => ({
       user_id: p.user_id,
       full_name: p.full_name,
       email: p.email,
+      cidade: (p as { cidade?: string }).cidade ?? "",
       role: roles?.find((r) => r.user_id === p.user_id)?.role ?? "—",
     }));
     setRows(merged);
@@ -50,15 +52,18 @@ export default function Usuarios() {
       return;
     }
     toast.success("Usuário criado");
-    setForm({ full_name: "", email: "", password: "", role: "operador" });
+    setForm({ full_name: "", email: "", password: "", cidade: "", role: "gerente" });
     load();
   };
+
+  const roleLabel = (r: string) =>
+    r === "admin" ? "Administrador" : r === "gerente" ? "Gerente" : r;
 
   return (
     <AppLayout>
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Usuários</h1>
-        <p className="text-muted-foreground">Gerencie operadores e administradores</p>
+        <p className="text-muted-foreground">Gerencie gerentes e administradores</p>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
@@ -66,19 +71,25 @@ export default function Usuarios() {
           <CardContent className="p-0">
             <table className="w-full text-sm">
               <thead className="border-b text-left">
-                <tr><th className="px-4 py-3 font-medium">Nome</th><th className="px-4 py-3 font-medium">E-mail</th><th className="px-4 py-3 font-medium">Papel</th></tr>
+                <tr>
+                  <th className="px-4 py-3 font-medium">Nome</th>
+                  <th className="px-4 py-3 font-medium">E-mail</th>
+                  <th className="px-4 py-3 font-medium">Cidade</th>
+                  <th className="px-4 py-3 font-medium">Papel</th>
+                </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={3} className="py-8 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></td></tr>
+                  <tr><td colSpan={4} className="py-8 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></td></tr>
                 ) : rows.map((r) => (
                   <tr key={r.user_id} className="border-b last:border-0">
                     <td className="px-4 py-3 font-medium">{r.full_name || "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.email}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{r.cidade || "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                         r.role === "admin" ? "bg-accent/15 text-accent-foreground" : "bg-muted text-muted-foreground"
-                      }`}>{r.role}</span>
+                      }`}>{roleLabel(r.role)}</span>
                     </td>
                   </tr>
                 ))}
@@ -107,11 +118,15 @@ export default function Usuarios() {
                 <Input type="password" required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
               </div>
               <div className="space-y-1.5">
+                <Label>Cidade</Label>
+                <Input value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} placeholder="Ex.: São Paulo" />
+              </div>
+              <div className="space-y-1.5">
                 <Label>Papel</Label>
                 <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="operador">Operador</SelectItem>
+                    <SelectItem value="gerente">Gerente</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
