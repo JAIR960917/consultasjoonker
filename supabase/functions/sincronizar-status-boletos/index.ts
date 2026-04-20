@@ -68,8 +68,34 @@ Deno.serve(async (req) => {
     const keyPem = Deno.env.get("CORA_PRIVATE_KEY");
     if (!clientId || !certPem || !keyPem) return json({ ok: false, error: "Secrets Cora ausentes" }, 500);
 
-    const httpClient = buildMtlsClient(certPem, keyPem);
-    if (!httpClient) return json({ ok: false, error: "Falha mTLS" }, 500);
+    const certCandidates = buildPemCandidates(certPem, "cert");
+    const keyCandidates = buildPemCandidates(keyPem, "key");
+    const certLooksLikeKey = /BEGIN [A-Z ]*PRIVATE KEY/.test(certPem);
+    const keyLooksLikeCert = /BEGIN CERTIFICATE/.test(keyPem);
+
+    let httpClient: Deno.HttpClient | null = null;
+    let lastErr = "";
+    const tryCreate = (cert: string, key: string) => {
+      try { return Deno.createHttpClient({ cert, key }); }
+      catch (e) { lastErr = e instanceof Error ? e.message : String(e); return null; }
+    };
+    for (const cert of certCandidates) {
+      for (const key of keyCandidates) {
+        httpClient = tryCreate(cert, key);
+        if (httpClient) break;
+      }
+      if (httpClient) break;
+    }
+    if (!httpClient && certLooksLikeKey && keyLooksLikeCert) {
+      for (const cert of keyCandidates) {
+        for (const key of certCandidates) {
+          httpClient = tryCreate(cert, key);
+          if (httpClient) break;
+        }
+        if (httpClient) break;
+      }
+    }
+    if (!httpClient) return json({ ok: false, error: `mTLS: ${lastErr || "Não foi possível decodificar o certificado"}` }, 500);
 
     const tokenResp = await fetch(CORA_TOKEN_URL, {
       method: "POST",
@@ -150,26 +176,49 @@ function json(data: unknown, status = 200) {
   });
 }
 
-function buildMtlsClient(certPem: string, keyPem: string): Deno.HttpClient | null {
-  const buildPemCandidates = (raw: string, kind: "cert" | "key") => {
-    const out = new Set<string>();
-    const add = (v: string | null | undefined) => {
-      if (!v) return;
-      let s = v.trim();
-      if (!s) return;
-      s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n{3,}/g, "\n\n");
-      if (!s.endsWith("\n")) s += "\n";
-      out.add(s);
-    };
-    add(raw);
-    add(raw.replace(/\\n/g, "\n").replace(/\\r/g, ""));
-    try { const p = JSON.parse(raw); if (typeof p === "string") add(p); } catch {}
-    return [...out];
+function buildPemCandidates(raw: string, kind: "cert" | "key"): string[] {
+  const out = new Set<string>();
+  const add = (value: string | null | undefined) => {
+    if (!value) return;
+    let s = value.trim();
+    if (!s) return;
+    s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n{3,}/g, "\n\n");
+    if (!s.endsWith("\n")) s += "\n";
+    out.add(s);
   };
-  const certs = buildPemCandidates(certPem, "cert");
-  const keys = buildPemCandidates(keyPem, "key");
-  for (const cert of certs) for (const key of keys) {
-    try { return Deno.createHttpClient({ cert, key }); } catch {}
+
+  add(raw);
+  add(raw.replace(/\\n/g, "\n").replace(/\\r/g, ""));
+
+  try { const parsed = JSON.parse(raw); if (typeof parsed === "string") add(parsed); } catch {}
+
+  const unquoted = raw.replace(/^['"]|['"]$/g, "");
+  if (unquoted !== raw) add(unquoted);
+
+  const normalizedLiteral = unquoted.replace(/\\n/g, "\n").replace(/\\r/g, "");
+  if (normalizedLiteral !== raw) add(normalizedLiteral);
+
+  if (!/BEGIN [A-Z ]+/.test(raw)) {
+    try {
+      const decoded = atob(raw.replace(/\s+/g, ""));
+      if (/BEGIN [A-Z ]+/.test(decoded)) add(decoded);
+    } catch {}
   }
-  return null;
+
+  const label = kind === "cert" ? "CERTIFICATE" : "(?:RSA |EC |)PRIVATE KEY";
+  const inlineMatch = normalizedLiteral.match(
+    new RegExp(`-----BEGIN ${label}-----\\s*([A-Za-z0-9+/=\\s]+?)\\s*-----END ${label}-----`, "m"),
+  );
+  if (inlineMatch) {
+    const body = inlineMatch[1].replace(/\s+/g, "\n");
+    const begin = kind === "cert"
+      ? "-----BEGIN CERTIFICATE-----"
+      : normalizedLiteral.match(/-----BEGIN ([A-Z ]+PRIVATE KEY)-----/)?.[0] ?? "-----BEGIN PRIVATE KEY-----";
+    const end = kind === "cert"
+      ? "-----END CERTIFICATE-----"
+      : normalizedLiteral.match(/-----END ([A-Z ]+PRIVATE KEY)-----/)?.[0] ?? "-----END PRIVATE KEY-----";
+    add(`${begin}\n${body}\n${end}\n`);
+  }
+
+  return [...out];
 }
