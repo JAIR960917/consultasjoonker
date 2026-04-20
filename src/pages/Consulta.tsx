@@ -195,6 +195,7 @@ export default function Consulta() {
           valor_parcela: pmt,
           valor_financiado: financiado,
           status: "aprovado",
+          cidade: cidadeVenda,
           primeiro_vencimento: endereco.primeiroVencimento || null,
         })
         .select("id")
@@ -234,7 +235,7 @@ export default function Consulta() {
         data: new Date().toLocaleDateString("pt-BR"),
         data_extenso: dataExtenso(new Date()),
         data_extenso_total: dataExtensoTotal(new Date()),
-        cidade: cidadeUsuario || "",
+        cidade: cidadeVenda,
         primeiro_vencimento: endereco.primeiroVencimento
           ? new Date(endereco.primeiroVencimento + "T00:00:00").toLocaleDateString("pt-BR")
           : "",
@@ -259,6 +260,7 @@ export default function Consulta() {
           telefone: endereco.telefone,
           content: filled,
           status: "pendente",
+          cidade: cidadeVenda,
         })
         .select("id")
         .single();
