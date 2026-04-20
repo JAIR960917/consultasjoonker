@@ -136,7 +136,8 @@ export default function Consulta() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valorTotal, result?.cpf]);
 
-  const registrar = async (status: "aprovado" | "recusado") => {
+  /** Para vendas aprovadas, abre o dialog de endereço/telefone antes de registrar. */
+  const handleRegistrarAprovada = () => {
     if (!result || !settings || !parcelas) return;
     if (entrada < minEntrada - 0.01) {
       toast.error("Entrada insuficiente", {
@@ -144,6 +145,97 @@ export default function Consulta() {
       });
       return;
     }
+    setAddressOpen(true);
+  };
+
+  /** Cria venda + contrato e leva o vendedor para a tela do contrato. */
+  const confirmarVendaComEndereco = async (endereco: AddressData) => {
+    if (!result || !settings || !parcelas) return;
+    setAddressOpen(false);
+    setSavingVenda(true);
+    try {
+      const taxa = rateForScore(result.score, settings);
+      const pmt = pricePmt(financiado, taxa, parcelas);
+      const { data: u } = await supabase.auth.getUser();
+      const userId = u.user!.id;
+
+      // 1) registra a venda
+      const { data: vendaIns, error: vendaErr } = await supabase
+        .from("vendas")
+        .insert({
+          user_id: userId,
+          consulta_id: consultaId,
+          cpf: result.cpf,
+          nome: result.nome,
+          score: result.score,
+          valor_total: total,
+          valor_entrada: entrada,
+          parcelas,
+          taxa_juros: taxa,
+          valor_parcela: pmt,
+          valor_financiado: financiado,
+          status: "aprovado",
+        })
+        .select("id")
+        .single();
+      if (vendaErr) throw vendaErr;
+
+      // 2) busca modelo atual e gera o conteúdo final
+      const { data: tpl, error: tplErr } = await supabase
+        .from("contract_template")
+        .select("content, company_name")
+        .limit(1)
+        .maybeSingle();
+      if (tplErr) throw tplErr;
+      if (!tpl) throw new Error("Modelo de contrato não configurado.");
+
+      const filled = fillTemplate(tpl.content, {
+        nome: result.nome,
+        cpf: maskCpf(result.cpf),
+        endereco: endereco.endereco,
+        telefone: endereco.telefone,
+        empresa: tpl.company_name,
+        valor_total: brl(total).replace("R$", "").trim(),
+        valor_entrada: brl(entrada).replace("R$", "").trim(),
+        valor_financiado: brl(financiado).replace("R$", "").trim(),
+        valor_parcela: brl(pmt).replace("R$", "").trim(),
+        parcelas,
+        taxa_juros: taxa.toFixed(2).replace(".", ","),
+        data: new Date().toLocaleDateString("pt-BR"),
+      });
+
+      // 3) cria o contrato
+      const { data: contractIns, error: contractErr } = await supabase
+        .from("contracts")
+        .insert({
+          user_id: userId,
+          venda_id: vendaIns.id,
+          consulta_id: consultaId,
+          cpf: result.cpf,
+          nome: result.nome,
+          endereco: endereco.endereco,
+          telefone: endereco.telefone,
+          content: filled,
+          status: "pendente",
+        })
+        .select("id")
+        .single();
+      if (contractErr) throw contractErr;
+
+      toast.success("Venda registrada — contrato gerado");
+      nav(`/contrato/${contractIns.id}`);
+    } catch (e: unknown) {
+      toast.error("Erro ao registrar venda", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setSavingVenda(false);
+    }
+  };
+
+  /** Recusada: registra direto, sem contrato. */
+  const registrarRecusada = async () => {
+    if (!result || !settings || !parcelas) return;
     const taxa = rateForScore(result.score, settings);
     const pmt = pricePmt(financiado, taxa, parcelas);
     setSavingVenda(true);
@@ -160,12 +252,11 @@ export default function Consulta() {
       taxa_juros: taxa,
       valor_parcela: pmt,
       valor_financiado: financiado,
-      status,
+      status: "recusado",
     });
     setSavingVenda(false);
     if (error) { toast.error("Erro ao registrar", { description: error.message }); return; }
-    toast.success(`Venda ${status} registrada`);
-    // reset
+    toast.success("Venda recusada registrada");
     setResult(null); setCpf(""); setValorTotal(""); setValorEntrada(""); setParcelas(null);
   };
 
