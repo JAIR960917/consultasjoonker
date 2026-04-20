@@ -246,6 +246,10 @@ export default function Configuracoes() {
         <TabsContent value="contrato" className="mt-6">
           <ContractTemplateTab />
         </TabsContent>
+
+        <TabsContent value="cora" className="mt-6">
+          <CoraTab />
+        </TabsContent>
       </Tabs>
     </AppLayout>
   );
