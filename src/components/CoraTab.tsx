@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, XCircle, Zap, FileText, Copy, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Zap, FileText, Copy, ExternalLink, Webhook, RefreshCw } from "lucide-react";
 
 interface AuthResult {
   ok: boolean;
@@ -61,6 +61,29 @@ export function CoraTab() {
   });
   const [loadingBoleto, setLoadingBoleto] = useState(false);
   const [boletoResult, setBoletoResult] = useState<BoletoResult | null>(null);
+
+  // Webhook
+  const [loadingWebhook, setLoadingWebhook] = useState(false);
+  const [webhookResult, setWebhookResult] = useState<unknown>(null);
+
+  const registrarWebhook = async () => {
+    setLoadingWebhook(true);
+    setWebhookResult(null);
+    const { data, error } = await supabase.functions.invoke("cora-registrar-webhook", { body: {} });
+    setLoadingWebhook(false);
+    if (error) toast.error("Falha", { description: error.message });
+    else toast.success("Resposta recebida");
+    setWebhookResult(data ?? { error: error?.message });
+  };
+
+  const listarWebhooks = async () => {
+    setLoadingWebhook(true);
+    setWebhookResult(null);
+    const { data, error } = await supabase.functions.invoke("cora-listar-webhooks", { body: {} });
+    setLoadingWebhook(false);
+    if (error) toast.error("Falha", { description: error.message });
+    setWebhookResult(data ?? { error: error?.message });
+  };
 
   const setField = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -131,6 +154,7 @@ export function CoraTab() {
             <TabsList>
               <TabsTrigger value="auth">Autenticação</TabsTrigger>
               <TabsTrigger value="boleto">Emitir boleto teste</TabsTrigger>
+              <TabsTrigger value="webhook">Webhook</TabsTrigger>
             </TabsList>
 
             {/* AUTH */}
@@ -261,6 +285,42 @@ export function CoraTab() {
                 ⚠️ Ambiente de produção: o boleto é real. Use valores baixos (R$ 1,00) para testar.
                 Não persiste em vendas/parcelas.
               </p>
+            </TabsContent>
+
+            {/* WEBHOOK */}
+            <TabsContent value="webhook" className="space-y-4 pt-4">
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm space-y-2">
+                <p className="font-semibold flex items-center gap-2">
+                  <Webhook className="h-4 w-4" /> Como funciona o webhook da Cora
+                </p>
+                <p className="text-muted-foreground">
+                  A Cora <strong>não tem painel</strong> para configurar webhooks. O cadastro é feito
+                  100% via API. Clique abaixo para registrar nosso endpoint para receber notificações
+                  de boletos <code>paid</code>, <code>canceled</code> e <code>overdue</code>.
+                </p>
+                <p className="text-muted-foreground">
+                  URL que será registrada: <code className="text-xs break-all">
+                    {`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cora-webhook`}
+                  </code>
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={registrarWebhook} disabled={loadingWebhook} size="lg">
+                  {loadingWebhook
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</>
+                    : <><Webhook className="mr-2 h-4 w-4" />Registrar webhook na Cora</>}
+                </Button>
+                <Button onClick={listarWebhooks} disabled={loadingWebhook} variant="outline" size="lg">
+                  <RefreshCw className="mr-2 h-4 w-4" /> Listar webhooks ativos
+                </Button>
+              </div>
+
+              {webhookResult !== null && (
+                <pre className="rounded-lg border bg-muted/30 p-4 text-xs overflow-auto max-h-96">
+{JSON.stringify(webhookResult, null, 2)}
+                </pre>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
