@@ -61,8 +61,23 @@ Deno.serve(async (req) => {
       return json({ error: "Secrets da Cora não configurados" }, 400);
     }
 
-    const client = buildMtlsClient(certPem, keyPem);
-    if (!client) return json({ error: "Falha ao carregar certificado/chave mTLS" }, 500);
+    const certCandidates = buildPemCandidates(certPem, "CERTIFICATE");
+    const keyCandidates = buildPemCandidates(keyPem, "PRIVATE KEY");
+    let client: Deno.HttpClient | null = null;
+    let lastErr = "";
+    outer: for (const cert of certCandidates) {
+      for (const key of keyCandidates) {
+        try {
+          client = Deno.createHttpClient({ cert, key });
+          break outer;
+        } catch (e) {
+          lastErr = e instanceof Error ? e.message : String(e);
+        }
+      }
+    }
+    if (!client) {
+      return json({ error: "Falha ao carregar certificado/chave mTLS", detail: lastErr }, 500);
+    }
 
     // 1) Obter token
     const tokenResp = await fetch(CORA_TOKEN_URL, {
