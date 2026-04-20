@@ -304,8 +304,7 @@ export default function Contrato() {
             <div className="mt-12 flex justify-center">
               <div className="w-full max-w-sm">
                 <div className="border-t border-white pt-2 text-center text-sm">
-                  <p className="font-semibold text-white">{c.nome}</p>
-                  <p className="text-white">CPF: {maskCpf(c.cpf)}</p>
+                  <p className="font-semibold text-white">Assinatura do emitente</p>
                 </div>
                 {assinado && (
                   <p className="mt-2 text-center text-xs text-success font-medium">
