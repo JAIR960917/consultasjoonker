@@ -3,9 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, Download } from "lucide-react";
+import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
 import { maskCpf } from "@/lib/finance";
 import { downloadContractPdf } from "@/lib/pdf";
 import { SignatureMockDialog } from "@/components/SignatureMockDialog";
@@ -20,6 +21,8 @@ interface ContractRow {
   status: string;
   signed_at: string | null;
   signature_url: string | null;
+  signature_provider: string | null;
+  signature_data: { signed_pdf_url?: string } | null;
   created_at: string;
 }
 
@@ -135,8 +138,38 @@ export default function Contrato() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={handleDownloadPdf}>
-            <FileDown className="mr-2 h-4 w-4" /> Baixar PDF
+            <FileDown className="mr-2 h-4 w-4" /> Baixar cópia
           </Button>
+
+          {assinado && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      onClick={() => {
+                        const url = c.signature_data?.signed_pdf_url;
+                        if (url) window.open(url, "_blank");
+                      }}
+                      disabled={!c.signature_data?.signed_pdf_url}
+                      className="bg-success text-success-foreground hover:bg-success/90"
+                    >
+                      <ShieldCheck className="mr-2 h-4 w-4" /> Baixar contrato assinado
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!c.signature_data?.signed_pdf_url && (
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-xs">
+                      O PDF oficial com certificado e trilha de auditoria estará disponível
+                      assim que a integração com a Assertiva Assinaturas for ativada.
+                    </p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
           {assinado ? (
             <Button onClick={() => setSignDialog(true)} variant="outline" className="border-success text-success hover:bg-success/10">
               <CheckCircle2 className="mr-2 h-4 w-4" /> Assinado
