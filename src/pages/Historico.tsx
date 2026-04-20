@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { brl, maskCpf } from "@/lib/finance";
+import { useAuth } from "@/contexts/AuthContext";
+import { Loader2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Venda {
   id: string;
@@ -19,12 +27,59 @@ interface Venda {
 }
 
 export default function Historico() {
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [vendas, setVendas] = useState<Venda[]>([]);
+  const [target, setTarget] = useState<Venda | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
     supabase.from("vendas").select("*").order("created_at", { ascending: false }).limit(100)
       .then(({ data }) => setVendas((data as Venda[]) ?? []));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async () => {
+    if (!target) return;
+    setDeleting(true);
+
+    // Bloqueia se houver boleto emitido para esta venda
+    const { data: emitidas, error: checkError } = await supabase
+      .from("parcelas")
+      .select("id")
+      .eq("venda_id", target.id)
+      .not("cora_invoice_id", "is", null);
+
+    if (checkError) {
+      setDeleting(false);
+      toast.error("Erro ao verificar boletos", { description: checkError.message });
+      return;
+    }
+
+    if (emitidas && emitidas.length > 0) {
+      setDeleting(false);
+      setTarget(null);
+      toast.error("Não é possível excluir esta venda", {
+        description: `Existem ${emitidas.length} boleto(s) emitido(s) no nome do cliente. Cancele os boletos no Cora antes de excluir.`,
+      });
+      return;
+    }
+
+    // Remove parcelas, contratos vinculados e a venda
+    await supabase.from("parcelas").delete().eq("venda_id", target.id);
+    await supabase.from("contracts").delete().eq("venda_id", target.id);
+    const { error } = await supabase.from("vendas").delete().eq("id", target.id);
+    setDeleting(false);
+
+    if (error) {
+      toast.error("Erro ao excluir venda", { description: error.message });
+      return;
+    }
+    toast.success("Venda excluída");
+    setTarget(null);
+    load();
+  };
 
   return (
     <AppLayout>
@@ -46,11 +101,12 @@ export default function Historico() {
                 <TableHead className="text-right">Entrada</TableHead>
                 <TableHead>Parcelas</TableHead>
                 <TableHead>Status</TableHead>
+                {isAdmin && <TableHead className="w-12" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {vendas.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Sem vendas ainda</TableCell></TableRow>
+                <TableRow><TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-muted-foreground py-8">Sem vendas ainda</TableCell></TableRow>
               ) : vendas.map((v) => (
                 <TableRow key={v.id}>
                   <TableCell className="text-xs">{new Date(v.created_at).toLocaleString("pt-BR")}</TableCell>
@@ -65,12 +121,47 @@ export default function Historico() {
                       v.status === "aprovado" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
                     }`}>{v.status}</span>
                   </TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={() => setTarget(v)}
+                        title="Excluir venda"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!target} onOpenChange={(o) => !o && setTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir venda do histórico?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é permanente. A venda, suas parcelas e o contrato vinculado serão removidos.
+              Vendas com boletos já emitidos no Cora não podem ser excluídas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
