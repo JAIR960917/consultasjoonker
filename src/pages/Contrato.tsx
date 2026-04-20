@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
-import { maskCpf, formatCurrency } from "@/lib/finance";
+import { maskCpf, brl } from "@/lib/finance";
 import { downloadContractPdf } from "@/lib/pdf";
 import { SignatureMockDialog } from "@/components/SignatureMockDialog";
 import { ParcelasContrato } from "@/components/ParcelasContrato";
