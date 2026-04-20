@@ -211,6 +211,9 @@ export default function Consulta() {
         valor_dividas: brl(somaDividas).replace("R$", "").trim(),
         valor_dividas_extenso: valorExtenso(somaDividas),
         data: new Date().toLocaleDateString("pt-BR"),
+        primeiro_vencimento: endereco.primeiroVencimento
+          ? new Date(endereco.primeiroVencimento + "T00:00:00").toLocaleDateString("pt-BR")
+          : "",
       });
 
       // 3) cria o contrato
