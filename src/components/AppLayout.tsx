@@ -72,6 +72,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <Button
             variant="ghost"
             className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            onClick={toggle}
+          >
+            {theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+            {theme === "dark" ? "Modo claro" : "Modo escuro"}
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={async () => { await signOut(); nav("/login"); }}
           >
             <LogOut className="mr-2 h-4 w-4" />
