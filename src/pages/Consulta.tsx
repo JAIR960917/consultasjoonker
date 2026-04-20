@@ -337,7 +337,7 @@ export default function Consulta() {
       {result && settings && (
         <>
           <Card className="mt-6 shadow-elegant overflow-hidden">
-            <div className={`h-1 ${aprovado ? "bg-success" : "bg-destructive"}`} />
+            <div className={`h-1 ${aprovado ? "bg-emerald-500" : "bg-destructive"}`} />
             <CardContent className="p-6">
               <div className="grid gap-6 md:grid-cols-3">
                 <div className="md:col-span-2 flex items-start gap-4">
@@ -353,9 +353,9 @@ export default function Consulta() {
                 <div>
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">Score Serasa</p>
                   <div className="mt-1 flex items-baseline gap-2">
-                    <p className={`text-4xl font-bold ${aprovado ? "text-success" : "text-destructive"}`}>{result.score}</p>
+                    <p className={`text-4xl font-bold ${aprovado ? "text-emerald-500" : "text-destructive"}`}>{result.score}</p>
                     {aprovado
-                      ? <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success"><CheckCircle2 className="h-3 w-3" />Aprovado</span>
+                      ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-500"><CheckCircle2 className="h-3 w-3" />Aprovado</span>
                       : <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"><XCircle className="h-3 w-3" />Recusado</span>
                     }
                   </div>
@@ -406,9 +406,9 @@ export default function Consulta() {
             </Card>
           ) : (
             <Card className="mt-6 shadow-card overflow-hidden">
-              <div className="h-1 bg-success" />
+              <div className="h-1 bg-emerald-500" />
               <CardContent className="p-6 flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-success" />
+                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                 <div>
                   <p className="font-semibold">Sem pendências financeiras</p>
                   <p className="text-sm text-muted-foreground">Não foram localizadas dívidas (PEFIN/REFIN) no Relatório Intermediário PF.</p>
@@ -522,7 +522,7 @@ export default function Consulta() {
 
                     <div className="mt-6 flex gap-3 print:hidden">
                       <Button onClick={handleRegistrarAprovada} disabled={!parcelas || savingVenda}
-                        className="bg-success hover:bg-success/90 text-success-foreground">
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white">
                         {savingVenda ? <Loader2 className="h-4 w-4 animate-spin" /> : "Registrar venda aprovada"}
                       </Button>
                       <Button onClick={registrarRecusada} disabled={!parcelas || savingVenda}
