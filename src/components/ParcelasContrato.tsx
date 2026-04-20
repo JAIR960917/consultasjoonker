@@ -143,7 +143,7 @@ export function ParcelasContrato({ contratoId, contratoAssinado }: {
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.numero_parcela}/{p.total_parcelas}</TableCell>
                     <TableCell className="text-sm">{new Date(p.vencimento + "T00:00:00").toLocaleDateString("pt-BR")}</TableCell>
-                    <TableCell className="text-sm font-medium">{formatBRL(Number(p.valor))}</TableCell>
+                    <TableCell className="text-sm font-medium">{brl(Number(p.valor))}</TableCell>
                     <TableCell>
                       <Badge className={s.cls}>{s.label}</Badge>
                       {p.erro_mensagem && (
