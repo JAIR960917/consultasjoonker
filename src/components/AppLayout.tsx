@@ -1,9 +1,10 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranding } from "@/contexts/BrandingContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import {
-  LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet, FileSignature,
+  LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet, FileSignature, Sun, Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
