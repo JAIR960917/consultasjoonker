@@ -5,8 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, PenLine, Printer, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, Download } from "lucide-react";
 import { maskCpf } from "@/lib/finance";
+import { downloadContractPdf } from "@/lib/pdf";
+import { SignatureMockDialog } from "@/components/SignatureMockDialog";
 
 interface ContractRow {
   id: string;
@@ -34,6 +36,7 @@ export default function Contrato() {
   const [c, setC] = useState<ContractRow | null>(null);
   const [tpl, setTpl] = useState<TemplateRow | null>(null);
   const [signing, setSigning] = useState(false);
+  const [signDialog, setSignDialog] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -47,28 +50,64 @@ export default function Contrato() {
     })();
   }, [id]);
 
-  const handleSign = async () => {
+  const handleStartSignature = async () => {
     if (!c) return;
     setSigning(true);
-    // TODO: integração com a API de assinatura (a ser informada pelo cliente).
-    // Quando disponível, esta função invocará uma edge function que chama a API
-    // do provedor escolhido (ZapSign / D4Sign / Clicksign / etc.) e atualiza o
-    // contrato com signature_provider, signature_external_id, signature_url.
-    //
-    // Por ora, marcamos como "enviado para assinatura" para o vendedor saber
-    // que o fluxo está pronto e funcional.
-    const { error } = await supabase.from("contracts").update({
-      status: "aguardando_assinatura",
-    }).eq("id", c.id);
+    // Mock: gera uma URL placeholder. Quando a Assertiva for integrada, o backend
+    // substituirá por: signature_url retornada por GET /v1/signatarios/{id}/obter-link
+    const mockUrl =
+      c.signature_url ||
+      `https://assinaturas.assertivasolucoes.com.br/mock/${c.id}`;
+
+    const { error } = await supabase
+      .from("contracts")
+      .update({
+        status: "aguardando_assinatura",
+        signature_provider: "assertiva_mock",
+        signature_url: mockUrl,
+      })
+      .eq("id", c.id);
     setSigning(false);
     if (error) {
       toast.error("Erro ao iniciar assinatura", { description: error.message });
       return;
     }
-    toast.success("Contrato pronto para assinatura", {
-      description: "A integração com o provedor de assinatura será conectada em seguida.",
+    setC({ ...c, status: "aguardando_assinatura", signature_url: mockUrl });
+    setSignDialog(true);
+  };
+
+  const handleSimulateSign = async () => {
+    if (!c) return;
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("contracts")
+      .update({ status: "assinado", signed_at: now })
+      .eq("id", c.id);
+    if (error) {
+      toast.error("Erro ao concluir simulação", { description: error.message });
+      return;
+    }
+    setC({ ...c, status: "assinado", signed_at: now });
+    toast.success("Assinatura simulada com sucesso", {
+      description: "Quando a Assertiva for conectada, isto acontecerá automaticamente.",
     });
-    setC({ ...c, status: "aguardando_assinatura" });
+  };
+
+  const handleDownloadPdf = () => {
+    if (!c || !tpl) return;
+    downloadContractPdf(
+      {
+        title: tpl.title,
+        companyName: tpl.company_name,
+        companyCnpj: tpl.company_cnpj,
+        companyAddress: tpl.company_address,
+        clientName: c.nome,
+        clientCpf: maskCpf(c.cpf),
+        content: c.content,
+        signedAt: c.signed_at ? new Date(c.signed_at).toLocaleString("pt-BR") : null,
+      },
+      `contrato-${c.nome.replace(/\s+/g, "_")}.pdf`,
+    );
   };
 
   if (!c || !tpl) {
@@ -94,24 +133,26 @@ export default function Contrato() {
           <h1 className="text-3xl font-bold tracking-tight">Contrato</h1>
           <p className="text-muted-foreground">{c.nome} · CPF {maskCpf(c.cpf)}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.print()}>
-            <Printer className="mr-2 h-4 w-4" /> Imprimir / PDF
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleDownloadPdf}>
+            <FileDown className="mr-2 h-4 w-4" /> Baixar PDF
           </Button>
-          {!assinado && (
+          {assinado ? (
+            <Button onClick={() => setSignDialog(true)} variant="outline" className="border-success text-success hover:bg-success/10">
+              <CheckCircle2 className="mr-2 h-4 w-4" /> Assinado
+            </Button>
+          ) : enviado ? (
+            <Button onClick={() => setSignDialog(true)} className="bg-warning text-warning-foreground hover:bg-warning/90" size="lg">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Aguardando assinatura
+            </Button>
+          ) : (
             <Button
-              onClick={handleSign}
-              disabled={signing || enviado}
+              onClick={handleStartSignature}
+              disabled={signing}
               className="bg-gradient-primary"
               size="lg"
             >
-              {signing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : enviado ? (
-                <><CheckCircle2 className="mr-2 h-4 w-4" /> Aguardando assinatura</>
-              ) : (
-                <><PenLine className="mr-2 h-4 w-4" /> Assinar contrato</>
-              )}
+              {signing ? <Loader2 className="h-4 w-4 animate-spin" /> : <><PenLine className="mr-2 h-4 w-4" /> Assinar contrato</>}
             </Button>
           )}
         </div>
@@ -153,6 +194,14 @@ export default function Contrato() {
           </div>
         </CardContent>
       </Card>
+
+      <SignatureMockDialog
+        open={signDialog}
+        onOpenChange={setSignDialog}
+        signatureUrl={c.signature_url || ""}
+        status={assinado ? "assinado" : "aguardando_assinatura"}
+        onSimulateSign={!assinado ? handleSimulateSign : undefined}
+      />
     </AppLayout>
   );
 }
