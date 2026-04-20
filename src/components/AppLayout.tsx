@@ -28,11 +28,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground">
         <div className="px-6 py-6 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-accent shadow-glow overflow-hidden">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg overflow-hidden">
               {branding?.logo_url ? (
                 <img src={branding.logo_url} alt={branding.app_name} className="h-full w-full object-contain" />
               ) : (
-                <Wallet className="h-5 w-5 text-accent-foreground" />
+                <Wallet className="h-5 w-5 text-sidebar-foreground" />
               )}
             </div>
             <div>
