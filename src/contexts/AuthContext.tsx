@@ -64,12 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setRole(null);
+    setCidade("");
   };
 
   const refreshRole = async () => { await loadRole(user?.id); };
 
   return (
-    <Ctx.Provider value={{ session, user, role, loading, signIn, signOut, refreshRole }}>
+    <Ctx.Provider value={{ session, user, role, cidade, loading, signIn, signOut, refreshRole }}>
       {children}
     </Ctx.Provider>
   );
