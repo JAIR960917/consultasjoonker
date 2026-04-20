@@ -114,8 +114,13 @@ Deno.serve(async (req) => {
         hint: "Verifique se CORA_CERTIFICATE e CORA_PRIVATE_KEY não estão invertidos e se o certificado está homologado para o ambiente de Produção.",
       }, 502);
     }
-    const tokenJson = await tokenResp.json();
-    const accessToken = tokenJson.access_token as string;
+    // Recria um client funcional para os próximos requests (cert/key já validados acima).
+    let workingClient: Deno.HttpClient | null = null;
+    outerC: for (const cert of certCandidates) {
+      for (const key of keyCandidates) {
+        try { workingClient = Deno.createHttpClient({ cert, key }); break outerC; } catch { /* ignore */ }
+      }
+    }
 
     // 2) Para cada trigger, registra um endpoint
     const results: Array<Record<string, unknown>> = [];
@@ -124,7 +129,7 @@ Deno.serve(async (req) => {
       const resp = await fetch(CORA_ENDPOINTS_URL, {
         method: "POST",
         // @ts-ignore
-        client,
+        client: workingClient,
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
