@@ -55,7 +55,7 @@ export function CoraTab() {
     nome: "",
     cpf: "",
     email: "",
-    valor: "10.00",
+    valor: "5.00",
     vencimento: tomorrow(),
     descricao: "Boleto de teste",
   });
@@ -180,7 +180,8 @@ export function CoraTab() {
                 </div>
                 <div className="space-y-2">
                   <Label>Valor (R$) *</Label>
-                  <Input type="number" step="0.01" min="1" value={form.valor} onChange={(e) => setField("valor", e.target.value)} />
+                  <Input type="number" step="0.01" min="5" value={form.valor} onChange={(e) => setField("valor", e.target.value)} />
+                  <p className="text-xs text-muted-foreground">Mínimo R$ 5,00 (regra Cora)</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Vencimento *</Label>
