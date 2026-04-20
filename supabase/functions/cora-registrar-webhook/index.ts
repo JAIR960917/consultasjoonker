@@ -61,8 +61,23 @@ Deno.serve(async (req) => {
       return json({ error: "Secrets da Cora não configurados" }, 400);
     }
 
-    const client = buildMtlsClient(certPem, keyPem);
-    if (!client) return json({ error: "Falha ao carregar certificado/chave mTLS" }, 500);
+    const certCandidates = buildPemCandidates(certPem, "CERTIFICATE");
+    const keyCandidates = buildPemCandidates(keyPem, "PRIVATE KEY");
+    let client: Deno.HttpClient | null = null;
+    let lastErr = "";
+    outer: for (const cert of certCandidates) {
+      for (const key of keyCandidates) {
+        try {
+          client = Deno.createHttpClient({ cert, key });
+          break outer;
+        } catch (e) {
+          lastErr = e instanceof Error ? e.message : String(e);
+        }
+      }
+    }
+    if (!client) {
+      return json({ error: "Falha ao carregar certificado/chave mTLS", detail: lastErr }, 500);
+    }
 
     // 1) Obter token
     const tokenResp = await fetch(CORA_TOKEN_URL, {
@@ -135,18 +150,26 @@ function json(data: unknown, status = 200) {
   });
 }
 
-function buildMtlsClient(certRaw: string, keyRaw: string): Deno.HttpClient | null {
-  const norm = (s: string) => s.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim() + "\n";
-  const candidates = [norm(certRaw), certRaw];
-  const keyCandidates = [norm(keyRaw), keyRaw];
-  for (const cert of candidates) {
-    for (const key of keyCandidates) {
-      try {
-        return Deno.createHttpClient({ cert, key });
-      } catch {
-        // tenta próxima
-      }
+function buildPemCandidates(raw: string, label: "CERTIFICATE" | "PRIVATE KEY"): string[] {
+  const candidates = new Set<string>();
+  const add = (s: string) => { if (s && s.includes("-----BEGIN")) candidates.add(s.endsWith("\n") ? s : s + "\n"); };
+
+  const normalized = raw.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim();
+  add(normalized);
+  add(raw.trim());
+
+  const stripped = normalized
+    .replace(/-----BEGIN [^-]+-----/g, "")
+    .replace(/-----END [^-]+-----/g, "")
+    .replace(/\s+/g, "");
+  if (stripped.length > 100) {
+    const lines: string[] = [];
+    for (let i = 0; i < stripped.length; i += 64) lines.push(stripped.slice(i, i + 64));
+    add(`-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`);
+    if (label === "PRIVATE KEY") {
+      add(`-----BEGIN RSA PRIVATE KEY-----\n${lines.join("\n")}\n-----END RSA PRIVATE KEY-----\n`);
     }
   }
-  return null;
+
+  return Array.from(candidates);
 }
