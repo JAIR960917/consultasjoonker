@@ -226,15 +226,35 @@ export default function Contrato() {
         <div className={`h-1 ${assinado ? "bg-success" : enviado ? "bg-warning" : "bg-primary"}`} />
         <CardContent className="p-8 sm:p-12">
           <div className="mx-auto max-w-3xl">
-            <h2 className="text-2xl font-bold text-center">{tpl.title.toUpperCase()}</h2>
-            <p className="text-center text-muted-foreground mt-1 mb-8">{tpl.company_name}</p>
+            <div className="mb-8 flex items-start justify-between gap-4">
+              <div className="flex-1 text-center">
+                <h2 className="text-2xl font-bold">{tpl.title.toUpperCase()}</h2>
+                <p className="text-muted-foreground mt-1">{tpl.company_name}</p>
+              </div>
+              {venda && (
+                <div className="text-right text-xs shrink-0 border-l border-border pl-4">
+                  {venda.primeiro_vencimento && (
+                    <p>
+                      <span className="text-muted-foreground">Vencimento: </span>
+                      <span className="font-semibold">
+                        {new Date(venda.primeiro_vencimento + "T00:00:00").toLocaleDateString("pt-BR")}
+                      </span>
+                    </p>
+                  )}
+                  <p className="mt-1">
+                    <span className="text-muted-foreground">Valor total: </span>
+                    <span className="font-semibold">{brl(venda.valor_total)}</span>
+                  </p>
+                </div>
+              )}
+            </div>
 
             <article className="whitespace-pre-wrap text-sm leading-7 text-foreground">
               {c.content}
             </article>
 
-            <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-8 print:gap-12">
-              <div>
+            <div className="mt-12 flex justify-center">
+              <div className="w-full max-w-sm">
                 <div className="border-t border-foreground pt-2 text-center text-sm">
                   <p className="font-semibold">{c.nome}</p>
                   <p className="text-muted-foreground">CPF: {maskCpf(c.cpf)}</p>
@@ -245,14 +265,6 @@ export default function Contrato() {
                     ✓ Assinado em {c.signed_at ? new Date(c.signed_at).toLocaleString("pt-BR") : ""}
                   </p>
                 )}
-              </div>
-              <div>
-                <div className="border-t border-foreground pt-2 text-center text-sm">
-                  <p className="font-semibold">{tpl.company_name}</p>
-                  {tpl.company_cnpj && <p className="text-muted-foreground">CNPJ: {tpl.company_cnpj}</p>}
-                  {tpl.company_address && <p className="text-xs text-muted-foreground">{tpl.company_address}</p>}
-                  <p className="text-xs text-muted-foreground mt-1">CONTRATADO</p>
-                </div>
               </div>
             </div>
           </div>
