@@ -80,8 +80,8 @@ export function buildContractPdf(d: PdfData): jsPDF {
 
   const rawLines = d.content.split("\n");
   const lineHeight = 16;
-  const rightColumnWidth = 180;
-  const gapBetweenColumns = 20;
+  const rightColumnWidth = 220;
+  const gapBetweenColumns = 16;
   const leftColumnWidth = usableWidth - rightColumnWidth - gapBetweenColumns;
   let y = margin + 50;
 
@@ -93,9 +93,11 @@ export function buildContractPdf(d: PdfData): jsPDF {
       continue;
     }
 
-    const columnMatch = rawLine.match(/^(.*?)\s{3,}(.+)$/);
-
-    if (columnMatch) {
+    const cityDateMatch = rawLine.match(/^(.*?)([A-Za-zÀ-ÿ\s.-]+-[A-Z]{2}\s*,\s*\d{1,2}\s+de\s+[A-Za-zÀ-ÿ]+\s+de\s+\d{4})\s*$/);
+    const spacedColumnsMatch = rawLine.match(/^(.*?)\s{3,}(.+)$/);
+    const columnMatch = cityDateMatch
+      ? [rawLine, cityDateMatch[1], cityDateMatch[2]]
+      : spacedColumnsMatch;
       const leftText = columnMatch[1].trim();
       const rightText = columnMatch[2].trim();
       const leftLines = leftText ? doc.splitTextToSize(leftText, leftColumnWidth) : [""];
