@@ -11,6 +11,7 @@ import { Loader2, Plus, Trash2, EyeOff } from "lucide-react";
 import type { ScoreTier } from "@/lib/finance";
 import { BrandingTab } from "@/components/BrandingTab";
 import { ContractTemplateTab } from "@/components/ContractTemplateTab";
+import { CoraTab } from "@/components/CoraTab";
 
 interface Settings {
   id: string;
