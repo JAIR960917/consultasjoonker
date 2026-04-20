@@ -512,11 +512,11 @@ export default function Consulta() {
                     )}
 
                     <div className="mt-6 flex gap-3 print:hidden">
-                      <Button onClick={() => registrar("aprovado")} disabled={!parcelas || savingVenda}
+                      <Button onClick={handleRegistrarAprovada} disabled={!parcelas || savingVenda}
                         className="bg-success hover:bg-success/90 text-success-foreground">
-                        Registrar venda aprovada
+                        {savingVenda ? <Loader2 className="h-4 w-4 animate-spin" /> : "Registrar venda aprovada"}
                       </Button>
-                      <Button onClick={() => registrar("recusado")} disabled={!parcelas || savingVenda}
+                      <Button onClick={registrarRecusada} disabled={!parcelas || savingVenda}
                         variant="outline">
                         Marcar como recusada
                       </Button>
@@ -528,6 +528,13 @@ export default function Consulta() {
           )}
         </>
       )}
+
+      <SaleAddressDialog
+        open={addressOpen}
+        onOpenChange={setAddressOpen}
+        onConfirm={confirmarVendaComEndereco}
+        clienteNome={result?.nome}
+      />
     </AppLayout>
   );
 }
