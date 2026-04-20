@@ -32,6 +32,8 @@ const SAMPLE = {
   valor_parcela: "150,00",
   parcelas: 10,
   taxa_juros: "3,00",
+  valor_dividas: "2.345,67",
+  valor_dividas_extenso: "dois mil trezentos e quarenta e cinco reais e sessenta e sete centavos",
   data: new Date().toLocaleDateString("pt-BR"),
 };
 
