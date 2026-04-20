@@ -49,11 +49,28 @@ interface TemplateRow {
 export default function Contrato() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
+  const { role } = useAuth();
   const [c, setC] = useState<ContractRow | null>(null);
   const [tpl, setTpl] = useState<TemplateRow | null>(null);
   const [venda, setVenda] = useState<VendaInfo | null>(null);
   const [signing, setSigning] = useState(false);
   const [signDialog, setSignDialog] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!c) return;
+    setDeleting(true);
+    await supabase.from("parcelas").delete().eq("contrato_id", c.id);
+    const { error } = await supabase.from("contracts").delete().eq("id", c.id);
+    setDeleting(false);
+    if (error) {
+      toast.error("Erro ao excluir contrato", { description: error.message });
+      return;
+    }
+    toast.success("Contrato excluído");
+    nav("/contratos");
+  };
 
   useEffect(() => {
     if (!id) return;
