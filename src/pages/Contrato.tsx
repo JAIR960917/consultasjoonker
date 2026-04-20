@@ -144,6 +144,8 @@ export default function Contrato() {
               <div>
                 <div className="border-t border-foreground pt-2 text-center text-sm">
                   <p className="font-semibold">{tpl.company_name}</p>
+                  {tpl.company_cnpj && <p className="text-muted-foreground">CNPJ: {tpl.company_cnpj}</p>}
+                  {tpl.company_address && <p className="text-xs text-muted-foreground">{tpl.company_address}</p>}
                   <p className="text-xs text-muted-foreground mt-1">CONTRATADO</p>
                 </div>
               </div>
