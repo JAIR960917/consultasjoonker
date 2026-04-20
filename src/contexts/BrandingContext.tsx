@@ -45,6 +45,12 @@ export const COLOR_FIELDS: { key: keyof Branding; cssVar: string; label: string;
   { key: "accent_foreground", cssVar: "--accent-foreground", label: "Texto do destaque", group: "Botões" },
   { key: "destructive", cssVar: "--destructive", label: "Botão perigo", group: "Botões" },
   { key: "destructive_foreground", cssVar: "--destructive-foreground", label: "Texto do perigo", group: "Botões" },
+
+  { key: "sidebar_background", cssVar: "--sidebar-background", label: "Fundo da sidebar", group: "Menu lateral" },
+  { key: "sidebar_foreground", cssVar: "--sidebar-foreground", label: "Texto da sidebar", group: "Menu lateral" },
+  { key: "sidebar_accent", cssVar: "--sidebar-accent", label: "Item ativo", group: "Menu lateral" },
+  { key: "sidebar_accent_foreground", cssVar: "--sidebar-accent-foreground", label: "Texto do item ativo", group: "Menu lateral" },
+  { key: "sidebar_border", cssVar: "--sidebar-border", label: "Borda", group: "Menu lateral" },
 ];
 
 // ---------- Conversores HEX <-> HSL ----------
