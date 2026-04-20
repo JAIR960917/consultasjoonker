@@ -8,9 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Wallet, Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useBranding } from "@/contexts/BrandingContext";
 
 export default function Login() {
   const { signIn, user, loading } = useAuth();
+  const { branding } = useBranding();
   const nav = useNavigate();
   const loc = useLocation() as { state?: { from?: { pathname?: string } } };
 
@@ -19,7 +21,6 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
-  // Garante admin padrão
   useEffect(() => {
     supabase.functions.invoke("seed-admin").then(() => setSeeded(true)).catch(() => setSeeded(true));
   }, []);
@@ -41,34 +42,42 @@ export default function Login() {
     nav("/", { replace: true });
   };
 
+  const appName = branding?.app_name || "CrediFlow";
+  const tagline = branding?.login_tagline || "Crédito inteligente";
+  const title = branding?.login_title || "Aprovação de crédito em segundos.";
+  const subtitle = branding?.login_subtitle || "";
+  const badge = branding?.login_badge || "";
+
   return (
     <div className="flex min-h-screen w-full bg-gradient-hero">
-      <div className="hidden lg:flex flex-1 flex-col justify-between p-12 text-primary-foreground">
+      {/* Lado esquerdo — usa cores da sidebar para garantir contraste em qualquer tema */}
+      <div className="hidden lg:flex flex-1 flex-col justify-between p-12 bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-accent shadow-glow">
-            <Wallet className="h-6 w-6 text-accent-foreground" />
+            {branding?.logo_url ? (
+              <img src={branding.logo_url} alt={appName} className="h-7 w-7 object-contain" />
+            ) : (
+              <Wallet className="h-6 w-6 text-accent-foreground" />
+            )}
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">CrediFlow</h1>
-            <p className="text-xs uppercase tracking-widest text-primary-foreground/60">Crédito inteligente</p>
+            <h1 className="text-2xl font-bold tracking-tight">{appName}</h1>
+            <p className="text-xs uppercase tracking-widest opacity-70">{tagline}</p>
           </div>
         </div>
 
         <div className="max-w-md space-y-6">
-          <h2 className="text-5xl font-bold leading-tight">
-            Aprovação de crédito <span className="text-accent">em segundos.</span>
-          </h2>
-          <p className="text-lg text-primary-foreground/80">
-            Consulte CPF, calcule entrada e parcelas com base em regras inteligentes
-            que você mesmo configura.
-          </p>
-          <div className="flex items-center gap-3 rounded-lg border border-primary-foreground/15 bg-primary-foreground/5 px-4 py-3">
-            <ShieldCheck className="h-5 w-5 text-accent" />
-            <p className="text-sm">Dados protegidos por autenticação e papéis</p>
-          </div>
+          <h2 className="text-5xl font-bold leading-tight">{title}</h2>
+          {subtitle && <p className="text-lg opacity-80">{subtitle}</p>}
+          {badge && (
+            <div className="flex items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-4 py-3">
+              <ShieldCheck className="h-5 w-5 text-accent" />
+              <p className="text-sm">{badge}</p>
+            </div>
+          )}
         </div>
 
-        <p className="text-xs text-primary-foreground/50">© {new Date().getFullYear()} CrediFlow</p>
+        <p className="text-xs opacity-60">© {new Date().getFullYear()} {appName}</p>
       </div>
 
       <div className="flex flex-1 items-center justify-center p-6">

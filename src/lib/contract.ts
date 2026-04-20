@@ -20,6 +20,8 @@ export const AVAILABLE_VARS = [
   { key: "valor_parcela", label: "Valor da parcela" },
   { key: "parcelas", label: "Número de parcelas" },
   { key: "taxa_juros", label: "Taxa de juros (% a.m.)" },
+  { key: "valor_dividas", label: "Valor total de dívidas (R$)" },
+  { key: "valor_dividas_extenso", label: "Valor total de dívidas por extenso" },
   { key: "data", label: "Data atual (dd/mm/aaaa)" },
 ] as const;
 
@@ -30,4 +32,55 @@ export function maskPhone(input: string): string {
   if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
   if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+// ---------- Valor por extenso (Real brasileiro) ----------
+const UNIDADES = ["", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
+const DEZENAS = ["", "", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"];
+const CENTENAS = ["", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos", "seiscentos", "setecentos", "oitocentos", "novecentos"];
+
+function ateMil(n: number): string {
+  if (n === 0) return "";
+  if (n === 100) return "cem";
+  const c = Math.floor(n / 100);
+  const resto = n % 100;
+  const partes: string[] = [];
+  if (c > 0) partes.push(CENTENAS[c]);
+  if (resto < 20) {
+    if (resto > 0) partes.push(UNIDADES[resto]);
+  } else {
+    const d = Math.floor(resto / 10);
+    const u = resto % 10;
+    let dz = DEZENAS[d];
+    if (u > 0) dz += ` e ${UNIDADES[u]}`;
+    partes.push(dz);
+  }
+  return partes.join(" e ");
+}
+
+/** Converte número em reais para extenso. Ex.: 1234.56 → "mil duzentos e trinta e quatro reais e cinquenta e seis centavos" */
+export function valorExtenso(valor: number): string {
+  if (!isFinite(valor) || valor < 0) return "";
+  const inteiro = Math.floor(valor);
+  const centavos = Math.round((valor - inteiro) * 100);
+
+  const inteiroStr = (() => {
+    if (inteiro === 0) return "zero";
+    const milhoes = Math.floor(inteiro / 1_000_000);
+    const milhares = Math.floor((inteiro % 1_000_000) / 1000);
+    const resto = inteiro % 1000;
+    const partes: string[] = [];
+    if (milhoes > 0) partes.push(milhoes === 1 ? "um milhão" : `${ateMil(milhoes)} milhões`);
+    if (milhares > 0) partes.push(milhares === 1 ? "mil" : `${ateMil(milhares)} mil`);
+    if (resto > 0) partes.push(ateMil(resto));
+    return partes.join(" e ");
+  })();
+
+  const reaisLabel = inteiro === 1 ? "real" : "reais";
+  let result = `${inteiroStr} ${reaisLabel}`;
+  if (centavos > 0) {
+    const centLabel = centavos === 1 ? "centavo" : "centavos";
+    result += ` e ${ateMil(centavos)} ${centLabel}`;
+  }
+  return result;
 }

@@ -20,7 +20,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { SaleAddressDialog, type AddressData } from "@/components/SaleAddressDialog";
-import { fillTemplate } from "@/lib/contract";
+import { fillTemplate, valorExtenso } from "@/lib/contract";
 
 interface Pendencia {
   credor: string;
@@ -189,6 +189,7 @@ export default function Consulta() {
       if (tplErr) throw tplErr;
       if (!tpl) throw new Error("Modelo de contrato não configurado.");
 
+      const somaDividas = result.somaPendencias ?? 0;
       const filled = fillTemplate(tpl.content, {
         nome: result.nome,
         cpf: maskCpf(result.cpf),
@@ -203,6 +204,8 @@ export default function Consulta() {
         valor_parcela: brl(pmt).replace("R$", "").trim(),
         parcelas,
         taxa_juros: taxa.toFixed(2).replace(".", ","),
+        valor_dividas: brl(somaDividas).replace("R$", "").trim(),
+        valor_dividas_extenso: valorExtenso(somaDividas),
         data: new Date().toLocaleDateString("pt-BR"),
       });
 

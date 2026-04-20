@@ -46,13 +46,13 @@
 
     --radius: 0.75rem;
 
-    --gradient-primary: linear-gradient(135deg, hsl(222 70% 18%), hsl(222 70% 28%));
-    --gradient-accent: linear-gradient(135deg, hsl(152 76% 44%), hsl(168 76% 42%));
-    --gradient-hero: linear-gradient(135deg, hsl(222 70% 14%) 0%, hsl(222 70% 22%) 50%, hsl(168 76% 32%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent)));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--sidebar-background)) 0%, hsl(var(--primary)) 60%, hsl(var(--accent) / 0.6) 100%);
 
-    --shadow-elegant: 0 10px 30px -12px hsl(222 70% 18% / 0.25);
-    --shadow-glow: 0 0 40px hsl(152 76% 44% / 0.35);
-    --shadow-card: 0 2px 8px -2px hsl(222 70% 18% / 0.08);
+    --shadow-elegant: 0 10px 30px -12px hsl(var(--primary) / 0.25);
+    --shadow-glow: 0 0 40px hsl(var(--accent) / 0.35);
+    --shadow-card: 0 2px 8px -2px hsl(var(--primary) / 0.08);
 
     --sidebar-background: 222 70% 14%;
     --sidebar-foreground: 210 40% 96%;
@@ -99,9 +99,9 @@
     --sidebar-border: 217 33% 16%;
     --sidebar-ring: 152 76% 44%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(152 76% 38%), hsl(152 76% 48%));
-    --gradient-accent: linear-gradient(135deg, hsl(152 76% 44%), hsl(168 76% 42%));
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 6%) 0%, hsl(222 47% 12%) 50%, hsl(168 76% 22%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent)));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--sidebar-background)) 0%, hsl(var(--background)) 60%, hsl(var(--accent) / 0.4) 100%);
   }
 }
 
