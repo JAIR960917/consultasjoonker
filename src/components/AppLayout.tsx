@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBranding } from "@/contexts/BrandingContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
   LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet, FileSignature, Sun, Moon, Menu,
 } from "lucide-react";
@@ -114,11 +114,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header mobile */}
         <header className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/95 backdrop-blur px-4 py-3">
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
+          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
+            <Menu className="h-5 w-5" />
+          </Button>
           <div className="flex items-center gap-2">
             {branding?.logo_url ? (
               <img src={branding.logo_url} alt={branding.app_name} className="h-7 w-7 rounded object-contain" />
