@@ -36,6 +36,7 @@ export type Database = {
           muted_foreground: string
           primary_color: string
           primary_foreground: string
+          primary_glow: string
           secondary: string
           secondary_foreground: string
           sidebar_accent: string
@@ -43,6 +44,8 @@ export type Database = {
           sidebar_background: string
           sidebar_border: string
           sidebar_foreground: string
+          sidebar_primary: string
+          sidebar_primary_foreground: string
           success: string
           success_foreground: string
           updated_at: string
@@ -70,6 +73,7 @@ export type Database = {
           muted_foreground?: string
           primary_color?: string
           primary_foreground?: string
+          primary_glow?: string
           secondary?: string
           secondary_foreground?: string
           sidebar_accent?: string
@@ -77,6 +81,8 @@ export type Database = {
           sidebar_background?: string
           sidebar_border?: string
           sidebar_foreground?: string
+          sidebar_primary?: string
+          sidebar_primary_foreground?: string
           success?: string
           success_foreground?: string
           updated_at?: string
@@ -104,6 +110,7 @@ export type Database = {
           muted_foreground?: string
           primary_color?: string
           primary_foreground?: string
+          primary_glow?: string
           secondary?: string
           secondary_foreground?: string
           sidebar_accent?: string
@@ -111,6 +118,8 @@ export type Database = {
           sidebar_background?: string
           sidebar_border?: string
           sidebar_foreground?: string
+          sidebar_primary?: string
+          sidebar_primary_foreground?: string
           success?: string
           success_foreground?: string
           updated_at?: string

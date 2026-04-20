@@ -33,6 +33,9 @@ export interface Branding {
   login_subtitle: string;
   login_badge: string;
   login_tagline: string;
+  sidebar_primary: string;
+  sidebar_primary_foreground: string;
+  primary_glow: string;
 }
 
 // Mapeamento campo da tabela -> nome da CSS var
@@ -43,15 +46,18 @@ export const COLOR_FIELDS: { key: keyof Branding; cssVar: string; label: string;
 
   { key: "primary_color", cssVar: "--primary", label: "Botão primário", group: "Botões" },
   { key: "primary_foreground", cssVar: "--primary-foreground", label: "Texto do primário", group: "Botões" },
+  { key: "primary_glow", cssVar: "--primary-glow", label: "Brilho do primário (gradiente)", group: "Botões" },
   { key: "secondary", cssVar: "--secondary", label: "Botão secundário", group: "Botões" },
   { key: "secondary_foreground", cssVar: "--secondary-foreground", label: "Texto do secundário", group: "Botões" },
-  { key: "accent", cssVar: "--accent", label: "Botão destaque", group: "Botões" },
+  { key: "accent", cssVar: "--accent", label: "Botão destaque (verde)", group: "Botões" },
   { key: "accent_foreground", cssVar: "--accent-foreground", label: "Texto do destaque", group: "Botões" },
   { key: "destructive", cssVar: "--destructive", label: "Botão perigo", group: "Botões" },
   { key: "destructive_foreground", cssVar: "--destructive-foreground", label: "Texto do perigo", group: "Botões" },
 
   { key: "sidebar_background", cssVar: "--sidebar-background", label: "Fundo da sidebar", group: "Menu lateral" },
   { key: "sidebar_foreground", cssVar: "--sidebar-foreground", label: "Texto da sidebar", group: "Menu lateral" },
+  { key: "sidebar_primary", cssVar: "--sidebar-primary", label: "Logo / ícone destaque (verde)", group: "Menu lateral" },
+  { key: "sidebar_primary_foreground", cssVar: "--sidebar-primary-foreground", label: "Texto sobre logo", group: "Menu lateral" },
   { key: "sidebar_accent", cssVar: "--sidebar-accent", label: "Item ativo", group: "Menu lateral" },
   { key: "sidebar_accent_foreground", cssVar: "--sidebar-accent-foreground", label: "Texto do item ativo", group: "Menu lateral" },
   { key: "sidebar_border", cssVar: "--sidebar-border", label: "Borda", group: "Menu lateral" },
