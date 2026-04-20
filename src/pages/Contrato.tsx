@@ -276,40 +276,40 @@ export default function Contrato() {
       <Card className="shadow-elegant overflow-hidden">
         <div className={`h-1 ${assinado ? "bg-success" : enviado ? "bg-warning" : "bg-primary"}`} />
         <CardContent className="p-8 sm:p-12">
-          <div className="mx-auto max-w-3xl text-white">
+          <div className="mx-auto max-w-3xl text-card-foreground">
             <div className="mb-8 flex items-start justify-between gap-4">
               <div className="flex-1 text-center">
                 <div className="flex items-baseline justify-center gap-2">
-                  <h2 className="text-2xl font-bold text-white">{tpl.title.toUpperCase()}</h2>
-                  <span className="text-xs text-white">Nº 1 DE 1</span>
+                  <h2 className="text-2xl font-bold">{tpl.title.toUpperCase()}</h2>
+                  <span className="text-xs">Nº 1 DE 1</span>
                 </div>
               </div>
               {venda && (
-                <div className="text-right text-xs shrink-0 border-l border-border pl-4 !text-white">
+                <div className="text-right text-xs shrink-0 border-l border-border pl-4">
                   {venda.primeiro_vencimento && (
-                    <p className="!text-white">
-                      <span className="!text-white">Vencimento: </span>
-                      <span className="font-semibold !text-white">
+                    <p>
+                      <span>Vencimento: </span>
+                      <span className="font-semibold">
                         {new Date(venda.primeiro_vencimento + "T00:00:00").toLocaleDateString("pt-BR")}
                       </span>
                     </p>
                   )}
-                  <p className="mt-1 !text-white">
-                    <span className="!text-white">Valor: </span>
-                    <span className="font-semibold !text-white">{brl(venda.valor_total)}</span>
+                  <p className="mt-1">
+                    <span>Valor: </span>
+                    <span className="font-semibold">{brl(venda.valor_total)}</span>
                   </p>
                 </div>
               )}
             </div>
 
-            <article className="whitespace-pre-wrap text-sm leading-7 text-white">
+            <article className="whitespace-pre-wrap text-sm leading-7">
               {c.content}
             </article>
 
             <div className="mt-12 flex justify-center">
               <div className="w-full max-w-sm">
-                <div className="border-t border-white pt-2 text-center text-sm">
-                  <p className="font-semibold text-white">Assinatura do emitente</p>
+                <div className="border-t border-card-foreground pt-2 text-center text-sm">
+                  <p className="font-semibold">Assinatura do emitente</p>
                 </div>
                 {assinado && (
                   <p className="mt-2 text-center text-xs text-success font-medium">
