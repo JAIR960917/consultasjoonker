@@ -150,18 +150,26 @@ function json(data: unknown, status = 200) {
   });
 }
 
-function buildMtlsClient(certRaw: string, keyRaw: string): Deno.HttpClient | null {
-  const norm = (s: string) => s.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim() + "\n";
-  const candidates = [norm(certRaw), certRaw];
-  const keyCandidates = [norm(keyRaw), keyRaw];
-  for (const cert of candidates) {
-    for (const key of keyCandidates) {
-      try {
-        return Deno.createHttpClient({ cert, key });
-      } catch {
-        // tenta próxima
-      }
+function buildPemCandidates(raw: string, label: "CERTIFICATE" | "PRIVATE KEY"): string[] {
+  const candidates = new Set<string>();
+  const add = (s: string) => { if (s && s.includes("-----BEGIN")) candidates.add(s.endsWith("\n") ? s : s + "\n"); };
+
+  const normalized = raw.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim();
+  add(normalized);
+  add(raw.trim());
+
+  const stripped = normalized
+    .replace(/-----BEGIN [^-]+-----/g, "")
+    .replace(/-----END [^-]+-----/g, "")
+    .replace(/\s+/g, "");
+  if (stripped.length > 100) {
+    const lines: string[] = [];
+    for (let i = 0; i < stripped.length; i += 64) lines.push(stripped.slice(i, i + 64));
+    add(`-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`);
+    if (label === "PRIVATE KEY") {
+      add(`-----BEGIN RSA PRIVATE KEY-----\n${lines.join("\n")}\n-----END RSA PRIVATE KEY-----\n`);
     }
   }
-  return null;
+
+  return Array.from(candidates);
 }
