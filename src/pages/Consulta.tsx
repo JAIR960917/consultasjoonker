@@ -20,7 +20,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { SaleAddressDialog, type AddressData } from "@/components/SaleAddressDialog";
-import { fillTemplate, valorExtenso, dataExtenso } from "@/lib/contract";
+import { fillTemplate, valorExtenso, dataExtenso, dataExtensoTotal } from "@/lib/contract";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Pendencia {
