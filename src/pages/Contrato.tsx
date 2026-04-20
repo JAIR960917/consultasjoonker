@@ -246,7 +246,6 @@ export default function Contrato() {
                   <h2 className="text-2xl font-bold text-white">{tpl.title.toUpperCase()}</h2>
                   <span className="text-xs text-white">Nº 1 DE 1</span>
                 </div>
-                <p className="mt-1 text-white">{tpl.company_name}</p>
               </div>
               {venda && (
                 <div className="text-right text-xs shrink-0 border-l border-border pl-4 !text-white">
