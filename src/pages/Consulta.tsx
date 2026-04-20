@@ -94,9 +94,15 @@ export default function Consulta() {
     setResult(null); setConsultaId(null);
     setValorTotal(""); setValorEntrada(""); setParcelas(null);
     try {
-      const { data, error } = await supabase.functions.invoke("consulta-cpf", {
-        body: { cpf: cpf.replace(/\D/g, "") },
-      });
+      const payload: Record<string, unknown> = { cpf: cpf.replace(/\D/g, "") };
+      if (modoSimulacao) {
+        payload.simulacao = true;
+        payload.nome = simNome.trim() || "Cliente Simulado";
+        payload.dataNascimento = simNascimento || null;
+        const s = parseInt(simScore, 10);
+        payload.score = Number.isFinite(s) ? s : 850;
+      }
+      const { data, error } = await supabase.functions.invoke("consulta-cpf", { body: payload });
       if (error) throw error;
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
       setResult(data as ConsultaResult);
@@ -106,7 +112,7 @@ export default function Consulta() {
         .select("id").eq("cpf", (data as ConsultaResult).cpf)
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (c) setConsultaId(c.id);
-      toast.success("Consulta concluída");
+      toast.success(modoSimulacao ? "Simulação carregada" : "Consulta concluída");
     } catch (e: unknown) {
       toast.error("Falha na consulta", { description: e instanceof Error ? e.message : String(e) });
     } finally {
