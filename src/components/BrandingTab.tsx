@@ -24,16 +24,20 @@ export function BrandingTab() {
   const setField = <K extends keyof Branding>(k: K, v: Branding[K]) =>
     setDraft({ ...draft, [k]: v });
 
-  // Pré-visualização ao vivo
+  const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+
+  // Pré-visualização ao vivo (apenas no modo claro)
   const onColorChange = (key: keyof Branding, hex: string) => {
     const hsl = hexToHslString(hex);
     setField(key, hsl as Branding[typeof key]);
+    if (isDark) return;
     const cssVar = COLOR_FIELDS.find((f) => f.key === key)?.cssVar;
     if (cssVar) document.documentElement.style.setProperty(cssVar, hsl);
   };
 
   const onHslTextChange = (key: keyof Branding, hslText: string) => {
     setField(key, hslText as Branding[typeof key]);
+    if (isDark) return;
     const cssVar = COLOR_FIELDS.find((f) => f.key === key)?.cssVar;
     if (cssVar) document.documentElement.style.setProperty(cssVar, hslText);
   };

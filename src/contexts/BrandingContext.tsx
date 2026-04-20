@@ -104,11 +104,25 @@ export function hexToHslString(hex: string): string {
 }
 
 // ---------- Aplicar tema ao DOM ----------
-function applyTheme(b: Branding) {
+function isDarkMode() {
+  return document.documentElement.classList.contains("dark");
+}
+
+function clearInlineColors() {
   const root = document.documentElement;
-  for (const f of COLOR_FIELDS) {
-    const value = b[f.key] as string;
-    if (value) root.style.setProperty(f.cssVar, value);
+  for (const f of COLOR_FIELDS) root.style.removeProperty(f.cssVar);
+}
+
+function applyBranding(b: Branding) {
+  const root = document.documentElement;
+  // Cores customizadas só valem no modo claro; no escuro usamos o tema do CSS
+  if (isDarkMode()) {
+    clearInlineColors();
+  } else {
+    for (const f of COLOR_FIELDS) {
+      const value = b[f.key] as string;
+      if (value) root.style.setProperty(f.cssVar, value);
+    }
   }
   // Favicon
   if (b.logo_url) {
@@ -140,12 +154,22 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.from("branding").select("*").limit(1).maybeSingle();
     if (data) {
       setBranding(data as Branding);
-      applyTheme(data as Branding);
+      applyBranding(data as Branding);
     }
     setLoading(false);
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Reagir à troca de tema: limpar/reaplicar inline styles
+  useEffect(() => {
+    const handler = () => {
+      if (branding) applyBranding(branding);
+      else clearInlineColors();
+    };
+    window.addEventListener("app-theme-change", handler);
+    return () => window.removeEventListener("app-theme-change", handler);
+  }, [branding]);
 
   return <Ctx.Provider value={{ branding, loading, refresh }}>{children}</Ctx.Provider>;
 }
