@@ -42,6 +42,7 @@ interface ConsultaResult {
 
 export default function Consulta() {
   const nav = useNavigate();
+  const { cidade: cidadeUsuario } = useAuth();
   const [cpf, setCpf] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ConsultaResult | null>(null);
