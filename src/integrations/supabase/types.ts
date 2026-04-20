@@ -266,6 +266,123 @@ export type Database = {
           },
         ]
       }
+      cora_webhook_logs: {
+        Row: {
+          cora_invoice_id: string | null
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json
+          processed: boolean
+        }
+        Insert: {
+          cora_invoice_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload: Json
+          processed?: boolean
+        }
+        Update: {
+          cora_invoice_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+        }
+        Relationships: []
+      }
+      parcelas: {
+        Row: {
+          codigo_barras: string | null
+          contrato_id: string | null
+          cora_invoice_id: string | null
+          created_at: string
+          emitido_em: string | null
+          erro_mensagem: string | null
+          id: string
+          linha_digitavel: string | null
+          numero_parcela: number
+          pago_em: string | null
+          pdf_url: string | null
+          pix_emv: string | null
+          pix_qrcode: string | null
+          status: string
+          total_parcelas: number
+          updated_at: string
+          user_id: string
+          valor: number
+          valor_pago: number | null
+          vencimento: string
+          venda_id: string
+        }
+        Insert: {
+          codigo_barras?: string | null
+          contrato_id?: string | null
+          cora_invoice_id?: string | null
+          created_at?: string
+          emitido_em?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          linha_digitavel?: string | null
+          numero_parcela: number
+          pago_em?: string | null
+          pdf_url?: string | null
+          pix_emv?: string | null
+          pix_qrcode?: string | null
+          status?: string
+          total_parcelas: number
+          updated_at?: string
+          user_id: string
+          valor: number
+          valor_pago?: number | null
+          vencimento: string
+          venda_id: string
+        }
+        Update: {
+          codigo_barras?: string | null
+          contrato_id?: string | null
+          cora_invoice_id?: string | null
+          created_at?: string
+          emitido_em?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          linha_digitavel?: string | null
+          numero_parcela?: number
+          pago_em?: string | null
+          pdf_url?: string | null
+          pix_emv?: string | null
+          pix_qrcode?: string | null
+          status?: string
+          total_parcelas?: number
+          updated_at?: string
+          user_id?: string
+          valor?: number
+          valor_pago?: number | null
+          vencimento?: string
+          venda_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcelas_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcelas_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
