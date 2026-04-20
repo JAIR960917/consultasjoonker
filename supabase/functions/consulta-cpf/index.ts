@@ -290,7 +290,25 @@ Deno.serve(async (req) => {
     const cpf = onlyDigits(body?.cpf ?? "");
     if (!isValidCPF(cpf)) return jsonResp({ error: "CPF inválido" }, 400);
 
-    const serasa = await consultarSerasa(cpf);
+    const simulacao = body?.simulacao === true;
+
+    let serasa: SerasaResult;
+    if (simulacao) {
+      const nomeSim = typeof body?.nome === "string" && body.nome.trim().length > 0
+        ? body.nome.trim()
+        : "Cliente Simulado";
+      const scoreSim = Number.isFinite(body?.score) ? Math.max(0, Math.min(1000, Number(body.score))) : 850;
+      serasa = {
+        nome: nomeSim,
+        score: scoreSim,
+        pendencias: [],
+        totalPendencias: 0,
+        somaPendencias: 0,
+        raw: { simulacao: true, dataNascimento: body?.dataNascimento ?? null },
+      } as SerasaResult;
+    } else {
+      serasa = await consultarSerasa(cpf);
+    }
 
     const { error: insertErr } = await supabase.from("consultas").insert({
       user_id: userData.user.id,
