@@ -9,12 +9,16 @@ interface PdfData {
   clientCpf: string;
   content: string;
   signedAt?: string | null;
+  vencimento?: string | null; // ex.: "20/05/2026"
+  valorTotal?: string | null; // ex.: "R$ 900,00"
+  numero?: string | null;     // ex.: "Nº 1 DE 1"
 }
 
 /**
- * Gera o PDF no mesmo layout exibido na tela (Nota Promissória):
- * fundo branco, letras pretas, título centralizado com subtítulo da empresa,
- * corpo do texto e duas linhas de assinatura (emitente / contratado).
+ * Gera o PDF no mesmo layout da tela (Nota Promissória):
+ * fundo branco, letras pretas, título centralizado com "Nº X DE Y" ao lado,
+ * vencimento e valor total no canto superior direito,
+ * corpo do contrato e UMA única linha de assinatura do emitente.
  */
 export function buildContractPdf(d: PdfData): jsPDF {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -23,84 +27,102 @@ export function buildContractPdf(d: PdfData): jsPDF {
   const margin = 56;
   const usableWidth = pageWidth - margin * 2;
 
-  // Cabeçalho — título e nome da empresa
   doc.setTextColor(0, 0, 0);
+
+  // ---- Cabeçalho ----
+  // Título centralizado + "Nº 1 DE 1" ao lado
+  const titleText = d.title.toUpperCase();
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text(d.title.toUpperCase(), pageWidth / 2, margin + 6, { align: "center" });
+  const titleWidth = doc.getTextWidth(titleText);
+
+  const numero = d.numero || "Nº 1 DE 1";
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const numWidth = doc.getTextWidth(numero);
+
+  const gap = 8;
+  const groupWidth = titleWidth + gap + numWidth;
+  const groupStart = (pageWidth - groupWidth) / 2;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text(titleText, groupStart, margin + 6);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(d.companyName.toUpperCase(), pageWidth / 2, margin + 24, { align: "center" });
+  doc.setFontSize(9);
+  doc.text(numero, groupStart + titleWidth + gap, margin + 2);
 
-  // Corpo do contrato
+  // Vencimento / Valor total no canto superior direito
+  if (d.vencimento || d.valorTotal) {
+    doc.setFontSize(9);
+    const rightX = pageWidth - margin;
+    let ry = margin - 4;
+    if (d.vencimento) {
+      doc.setFont("helvetica", "normal");
+      doc.text(`Vencimento: `, rightX - doc.getTextWidth(d.vencimento) - 4, ry, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.text(d.vencimento, rightX, ry, { align: "right" });
+      ry += 12;
+    }
+    if (d.valorTotal) {
+      doc.setFont("helvetica", "normal");
+      doc.text(`Valor total: `, rightX - doc.getTextWidth(d.valorTotal) - 4, ry, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.text(d.valorTotal, rightX, ry, { align: "right" });
+    }
+  }
+
+  // ---- Corpo do contrato ----
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
 
   const paragraphs = d.content.split(/\n+/);
   const lineHeight = 16;
-  let y = margin + 60;
+  let y = margin + 50;
 
   for (const paragraph of paragraphs) {
     const lines = doc.splitTextToSize(paragraph.trim(), usableWidth);
     for (const line of lines) {
-      if (y > pageHeight - margin - 140) {
+      if (y > pageHeight - margin - 120) {
         doc.addPage();
         y = margin;
       }
       doc.text(line, margin, y);
       y += lineHeight;
     }
-    y += 6; // espaçamento entre parágrafos
+    y += 6;
   }
 
-  // Garante espaço para o bloco de assinaturas
-  if (y > pageHeight - 180) {
+  // ---- Assinatura única (emitente) ----
+  if (y > pageHeight - 140) {
     doc.addPage();
     y = margin;
   }
-  y += 40;
+  y += 50;
 
-  // Bloco de assinaturas — duas colunas
-  const colWidth = (usableWidth - 40) / 2;
-  const sigY = y + 50;
+  const sigWidth = 280;
+  const sigX = (pageWidth - sigWidth) / 2;
+  const sigY = y;
 
   doc.setDrawColor(0);
   doc.setLineWidth(0.6);
+  doc.line(sigX, sigY, sigX + sigWidth, sigY);
 
-  // Emitente
-  doc.line(margin, sigY, margin + colWidth, sigY);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.text("Assinatura do emitente", margin + colWidth / 2, sigY + 14, { align: "center" });
+  doc.text("Assinatura do emitente", pageWidth / 2, sigY + 14, { align: "center" });
 
   if (d.signedAt) {
     doc.setFont("helvetica", "normal");
     doc.setTextColor(20, 130, 60);
     doc.setFontSize(9);
-    doc.text(`✓ Assinado em ${d.signedAt}`, margin + colWidth / 2, sigY + 30, { align: "center" });
+    doc.text(`✓ Assinado em ${d.signedAt}`, pageWidth / 2, sigY + 30, { align: "center" });
     doc.setTextColor(0, 0, 0);
   }
 
-  // Contratado
-  const x2 = margin + colWidth + 40;
-  doc.line(x2, sigY, x2 + colWidth, sigY);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text(d.companyName.toUpperCase(), x2 + colWidth / 2, sigY + 14, { align: "center" });
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  if (d.companyCnpj) {
-    doc.text(`CNPJ: ${d.companyCnpj}`, x2 + colWidth / 2, sigY + 28, { align: "center" });
-  }
-  doc.setTextColor(110, 110, 110);
-  doc.text("CONTRATADO", x2 + colWidth / 2, sigY + 44, { align: "center" });
-  doc.setTextColor(0, 0, 0);
-
-  // Rodapé com numeração
+  // ---- Rodapé com numeração ----
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
     doc.setPage(i);
