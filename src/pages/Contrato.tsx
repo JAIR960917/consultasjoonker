@@ -242,8 +242,10 @@ export default function Contrato() {
           <div className="mx-auto max-w-3xl text-white">
             <div className="mb-8 flex items-start justify-between gap-4">
               <div className="flex-1 text-center">
-                <h2 className="text-2xl font-bold text-white">{tpl.title.toUpperCase()}</h2>
-                <p className="mt-1 text-xs text-white">Nº 1 DE 1</p>
+                <div className="flex items-baseline justify-center gap-2">
+                  <h2 className="text-2xl font-bold text-white">{tpl.title.toUpperCase()}</h2>
+                  <span className="text-xs text-white">Nº 1 DE 1</span>
+                </div>
                 <p className="mt-1 text-white">{tpl.company_name}</p>
               </div>
               {venda && (
