@@ -178,6 +178,51 @@ export function BrandingTab() {
         </Card>
       ))}
 
+      {/* Textos da tela de login */}
+      <Card className="shadow-card">
+        <CardContent className="p-6 space-y-4">
+          <h2 className="text-lg font-semibold">Textos da tela de login</h2>
+          <p className="text-sm text-muted-foreground">
+            Personalize a mensagem exibida ao lado do formulário de acesso.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Tagline (acima do nome)</Label>
+              <Input
+                value={draft.login_tagline ?? ""}
+                onChange={(e) => setField("login_tagline", e.target.value)}
+                placeholder="Crédito inteligente"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Badge de segurança</Label>
+              <Input
+                value={draft.login_badge ?? ""}
+                onChange={(e) => setField("login_badge", e.target.value)}
+                placeholder="Dados protegidos por autenticação e papéis"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Título principal</Label>
+              <Input
+                value={draft.login_title ?? ""}
+                onChange={(e) => setField("login_title", e.target.value)}
+                placeholder="Aprovação de crédito em segundos."
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Subtítulo / descrição</Label>
+              <Textarea
+                rows={3}
+                value={draft.login_subtitle ?? ""}
+                onChange={(e) => setField("login_subtitle", e.target.value)}
+                placeholder="Consulte CPF, calcule entrada e parcelas..."
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={resetPreview}>
           <RotateCcw className="mr-2 h-4 w-4" />Descartar
