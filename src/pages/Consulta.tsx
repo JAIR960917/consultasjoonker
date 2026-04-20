@@ -42,6 +42,12 @@ export default function Consulta() {
   const [consultaId, setConsultaId] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsLite | null>(null);
 
+  // Simulação
+  const [modoSimulacao, setModoSimulacao] = useState(false);
+  const [simNome, setSimNome] = useState("");
+  const [simNascimento, setSimNascimento] = useState("");
+  const [simScore, setSimScore] = useState<string>("850");
+
   // Venda
   const [valorTotal, setValorTotal] = useState<string>("");
   const [valorEntrada, setValorEntrada] = useState<string>("");
