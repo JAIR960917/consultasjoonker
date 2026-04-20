@@ -142,6 +142,8 @@ export type Database = {
       }
       contract_template: {
         Row: {
+          company_address: string
+          company_cnpj: string
           company_name: string
           content: string
           id: string
@@ -149,6 +151,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_address?: string
+          company_cnpj?: string
           company_name?: string
           content?: string
           id?: string
@@ -156,6 +160,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_address?: string
+          company_cnpj?: string
           company_name?: string
           content?: string
           id?: string
