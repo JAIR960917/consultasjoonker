@@ -60,6 +60,8 @@ export function ContractTemplateTab() {
     const { error } = await supabase.from("contract_template").update({
       title: tpl.title,
       company_name: tpl.company_name,
+      company_cnpj: tpl.company_cnpj,
+      company_address: tpl.company_address,
       content: tpl.content,
     }).eq("id", tpl.id);
     setSaving(false);
@@ -67,13 +69,23 @@ export function ContractTemplateTab() {
     else toast.success("Modelo de contrato salvo");
   };
 
-  const preview = fillTemplate(tpl.content, { ...SAMPLE, empresa: tpl.company_name });
+  const preview = fillTemplate(tpl.content, {
+    ...SAMPLE,
+    empresa: tpl.company_name,
+    empresa_cnpj: tpl.company_cnpj || SAMPLE.empresa_cnpj,
+    empresa_endereco: tpl.company_address || SAMPLE.empresa_endereco,
+  });
 
   return (
     <div className="grid gap-6">
       <Card className="shadow-card">
         <CardContent className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold">Identificação</h2>
+          <h2 className="text-lg font-semibold">Identificação da empresa</h2>
+          <p className="text-sm text-muted-foreground">
+            Esses dados serão usados nas variáveis <span className="font-mono">{`{{empresa}}`}</span>,{" "}
+            <span className="font-mono">{`{{empresa_cnpj}}`}</span> e{" "}
+            <span className="font-mono">{`{{empresa_endereco}}`}</span> do contrato.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Título do contrato</Label>
@@ -81,7 +93,27 @@ export function ContractTemplateTab() {
             </div>
             <div className="space-y-2">
               <Label>Nome da empresa (CONTRATADO)</Label>
-              <Input value={tpl.company_name} onChange={(e) => set({ company_name: e.target.value })} />
+              <Input
+                value={tpl.company_name}
+                onChange={(e) => set({ company_name: e.target.value })}
+                placeholder="Razão social ou nome fantasia"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>CNPJ</Label>
+              <Input
+                value={tpl.company_cnpj}
+                onChange={(e) => set({ company_cnpj: e.target.value })}
+                placeholder="00.000.000/0001-00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Endereço (sede do CNPJ)</Label>
+              <Input
+                value={tpl.company_address}
+                onChange={(e) => set({ company_address: e.target.value })}
+                placeholder="Rua, número, bairro, cidade - UF, CEP"
+              />
             </div>
           </div>
         </CardContent>
