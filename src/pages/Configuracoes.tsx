@@ -125,6 +125,7 @@ export default function Configuracoes() {
           <TabsTrigger value="regras">Regras</TabsTrigger>
           <TabsTrigger value="marca">Marca</TabsTrigger>
           <TabsTrigger value="contrato">Modelo de Contrato</TabsTrigger>
+          <TabsTrigger value="cora">Cora (Boletos)</TabsTrigger>
         </TabsList>
 
         <TabsContent value="regras" className="mt-6">
