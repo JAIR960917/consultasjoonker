@@ -11,6 +11,7 @@ import { Loader2, Plus, Trash2, EyeOff } from "lucide-react";
 import type { ScoreTier } from "@/lib/finance";
 import { BrandingTab } from "@/components/BrandingTab";
 import { ContractTemplateTab } from "@/components/ContractTemplateTab";
+import { CoraTab } from "@/components/CoraTab";
 
 interface Settings {
   id: string;
@@ -124,6 +125,7 @@ export default function Configuracoes() {
           <TabsTrigger value="regras">Regras</TabsTrigger>
           <TabsTrigger value="marca">Marca</TabsTrigger>
           <TabsTrigger value="contrato">Modelo de Contrato</TabsTrigger>
+          <TabsTrigger value="cora">Cora (Boletos)</TabsTrigger>
         </TabsList>
 
         <TabsContent value="regras" className="mt-6">
@@ -243,6 +245,10 @@ export default function Configuracoes() {
 
         <TabsContent value="contrato" className="mt-6">
           <ContractTemplateTab />
+        </TabsContent>
+
+        <TabsContent value="cora" className="mt-6">
+          <CoraTab />
         </TabsContent>
       </Tabs>
     </AppLayout>
