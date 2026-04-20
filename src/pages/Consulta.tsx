@@ -89,6 +89,22 @@ export default function Consulta() {
     });
   }, []);
 
+  // Admin: carrega lista de cidades cadastradas para seleção na venda
+  useEffect(() => {
+    if (role !== "admin") return;
+    supabase.from("profiles").select("cidade").then(({ data }) => {
+      if (!data) return;
+      const unique = Array.from(
+        new Set(
+          data
+            .map((p) => (p.cidade || "").trim())
+            .filter((c) => c.length > 0),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      setCidadesDisponiveis(unique);
+    });
+  }, [role]);
+
   const total = parseFloat(valorTotal.replace(",", ".")) || 0;
   const entrada = parseFloat(valorEntrada.replace(",", ".")) || 0;
 
