@@ -29,6 +29,10 @@ export interface Branding {
   success_foreground: string;
   warning: string;
   warning_foreground: string;
+  login_title: string;
+  login_subtitle: string;
+  login_badge: string;
+  login_tagline: string;
 }
 
 // Mapeamento campo da tabela -> nome da CSS var
