@@ -175,6 +175,7 @@ export default function Consulta() {
           valor_parcela: pmt,
           valor_financiado: financiado,
           status: "aprovado",
+          primeiro_vencimento: endereco.primeiroVencimento || null,
         })
         .select("id")
         .single();

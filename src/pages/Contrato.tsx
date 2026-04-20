@@ -31,6 +31,7 @@ interface ContractRow {
 interface VendaInfo {
   valor_total: number;
   primeiro_vencimento: string | null;
+  parcelas: number;
 }
 
 interface TemplateRow {
@@ -61,10 +62,9 @@ export default function Contrato() {
         if ((contract as ContractRow).venda_id) {
           const { data: vendaRow } = await supabase
             .from("vendas")
-            .select("valor_total")
+            .select("valor_total, primeiro_vencimento, parcelas")
             .eq("id", (contract as ContractRow).venda_id!)
             .maybeSingle();
-          // Tenta pegar a primeira parcela já criada; se não existir, fica null
           const { data: parcela1 } = await supabase
             .from("parcelas")
             .select("vencimento")
@@ -73,9 +73,10 @@ export default function Contrato() {
             .limit(1)
             .maybeSingle();
           if (vendaRow) {
-            // Fallback: tenta extrair data dd/mm/aaaa do conteúdo do contrato
-            // (o template substitui {{primeiro_vencimento}} pela data informada na venda)
-            let venc: string | null = parcela1?.vencimento ?? null;
+            let venc: string | null =
+              (vendaRow as { primeiro_vencimento: string | null }).primeiro_vencimento ??
+              parcela1?.vencimento ??
+              null;
             if (!venc) {
               const match = (contract as ContractRow).content.match(
                 /vencimento[^0-9]{0,40}(\d{2}\/\d{2}\/\d{4})/i,
@@ -88,6 +89,7 @@ export default function Contrato() {
             setVenda({
               valor_total: Number(vendaRow.valor_total),
               primeiro_vencimento: venc,
+              parcelas: Number((vendaRow as { parcelas: number }).parcelas) || 1,
             });
           }
         }
@@ -240,7 +242,10 @@ export default function Contrato() {
           <div className="mx-auto max-w-3xl text-white">
             <div className="mb-8 flex items-start justify-between gap-4">
               <div className="flex-1 text-center">
-                <h2 className="text-2xl font-bold text-white">{tpl.title.toUpperCase()}</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  {tpl.title.toUpperCase()}
+                  {venda && ` Nº 1 DE ${venda.parcelas}`}
+                </h2>
                 <p className="mt-1 text-white">{tpl.company_name}</p>
               </div>
               {venda && (

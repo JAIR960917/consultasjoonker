@@ -472,6 +472,7 @@ export type Database = {
           id: string
           nome: string | null
           parcelas: number
+          primeiro_vencimento: string | null
           score: number | null
           status: string
           taxa_juros: number
@@ -488,6 +489,7 @@ export type Database = {
           id?: string
           nome?: string | null
           parcelas: number
+          primeiro_vencimento?: string | null
           score?: number | null
           status?: string
           taxa_juros: number
@@ -504,6 +506,7 @@ export type Database = {
           id?: string
           nome?: string | null
           parcelas?: number
+          primeiro_vencimento?: string | null
           score?: number | null
           status?: string
           taxa_juros?: number
