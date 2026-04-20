@@ -327,7 +327,8 @@ Deno.serve(async (req) => {
       pendencias: serasa.pendencias,
       totalPendencias: serasa.totalPendencias,
       somaPendencias: serasa.somaPendencias,
-      provider: "serasa",
+      provider: simulacao ? "simulacao" : "serasa",
+      simulacao,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
