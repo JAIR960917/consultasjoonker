@@ -78,12 +78,48 @@ export function buildContractPdf(d: PdfData): jsPDF {
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
 
-  const paragraphs = d.content.split(/\n+/);
+  const rawLines = d.content.split("\n");
   const lineHeight = 16;
+  const rightColumnWidth = 180;
+  const gapBetweenColumns = 20;
+  const leftColumnWidth = usableWidth - rightColumnWidth - gapBetweenColumns;
   let y = margin + 50;
 
-  for (const paragraph of paragraphs) {
-    const lines = doc.splitTextToSize(paragraph.trim(), usableWidth);
+  for (const rawLine of rawLines) {
+    const paragraph = rawLine.trim();
+
+    if (!paragraph) {
+      y += 8;
+      continue;
+    }
+
+    const columnMatch = rawLine.match(/^(.*?)\s{3,}(.+)$/);
+
+    if (columnMatch) {
+      const leftText = columnMatch[1].trim();
+      const rightText = columnMatch[2].trim();
+      const leftLines = leftText ? doc.splitTextToSize(leftText, leftColumnWidth) : [""];
+      const rightLines = doc.splitTextToSize(rightText, rightColumnWidth);
+      const totalLines = Math.max(leftLines.length, rightLines.length);
+
+      for (let i = 0; i < totalLines; i++) {
+        if (y > pageHeight - margin - 120) {
+          doc.addPage();
+          y = margin;
+        }
+
+        const leftLine = leftLines[i];
+        const rightLine = rightLines[i];
+
+        if (leftLine) doc.text(leftLine, margin, y);
+        if (rightLine) doc.text(rightLine, pageWidth - margin, y, { align: "right" });
+        y += lineHeight;
+      }
+
+      continue;
+    }
+
+    const lines = doc.splitTextToSize(paragraph, usableWidth);
     for (const line of lines) {
       if (y > pageHeight - margin - 120) {
         doc.addPage();
