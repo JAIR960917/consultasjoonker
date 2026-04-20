@@ -21,14 +21,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<Role>(null);
+  const [cidade, setCidade] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   const loadRole = async (uid: string | undefined) => {
-    if (!uid) { setRole(null); return; }
-    const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-    if (data?.some((r) => r.role === "admin")) setRole("admin");
-    else if (data?.some((r) => r.role === "gerente")) setRole("gerente");
+    if (!uid) { setRole(null); setCidade(""); return; }
+    const [{ data: roles }, { data: prof }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", uid),
+      supabase.from("profiles").select("cidade").eq("user_id", uid).maybeSingle(),
+    ]);
+    if (roles?.some((r) => r.role === "admin")) setRole("admin");
+    else if (roles?.some((r) => r.role === "gerente")) setRole("gerente");
     else setRole(null);
+    setCidade((prof as { cidade?: string } | null)?.cidade ?? "");
   };
 
   useEffect(() => {
