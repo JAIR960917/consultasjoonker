@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, XCircle, Zap, FileText, Copy, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Zap, FileText, Copy, ExternalLink, Webhook, RefreshCw } from "lucide-react";
 
 interface AuthResult {
   ok: boolean;
@@ -131,6 +131,7 @@ export function CoraTab() {
             <TabsList>
               <TabsTrigger value="auth">Autenticação</TabsTrigger>
               <TabsTrigger value="boleto">Emitir boleto teste</TabsTrigger>
+              <TabsTrigger value="webhook">Webhook</TabsTrigger>
             </TabsList>
 
             {/* AUTH */}
