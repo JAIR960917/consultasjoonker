@@ -62,6 +62,29 @@ export function CoraTab() {
   const [loadingBoleto, setLoadingBoleto] = useState(false);
   const [boletoResult, setBoletoResult] = useState<BoletoResult | null>(null);
 
+  // Webhook
+  const [loadingWebhook, setLoadingWebhook] = useState(false);
+  const [webhookResult, setWebhookResult] = useState<unknown>(null);
+
+  const registrarWebhook = async () => {
+    setLoadingWebhook(true);
+    setWebhookResult(null);
+    const { data, error } = await supabase.functions.invoke("cora-registrar-webhook", { body: {} });
+    setLoadingWebhook(false);
+    if (error) toast.error("Falha", { description: error.message });
+    else toast.success("Resposta recebida");
+    setWebhookResult(data ?? { error: error?.message });
+  };
+
+  const listarWebhooks = async () => {
+    setLoadingWebhook(true);
+    setWebhookResult(null);
+    const { data, error } = await supabase.functions.invoke("cora-listar-webhooks", { body: {} });
+    setLoadingWebhook(false);
+    if (error) toast.error("Falha", { description: error.message });
+    setWebhookResult(data ?? { error: error?.message });
+  };
+
   const setField = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const testarAuth = async () => {
