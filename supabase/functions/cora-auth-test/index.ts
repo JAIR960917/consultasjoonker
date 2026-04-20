@@ -66,11 +66,46 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Normaliza PEM: converte \r\n -> \n, \n literal -> quebra real, e
+    // garante que header/footer fiquem em linhas próprias (a Cora rejeita
+    // qualquer caractere extra nas linhas BEGIN/END).
+    const normalizePem = (raw: string): string => {
+      let s = raw.trim();
+      // Se foi colado como uma linha só com "\n" literais, converte
+      if (s.includes("\\n")) s = s.replace(/\\n/g, "\n");
+      // Normaliza CRLF
+      s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      // Remove linhas em branco duplicadas
+      s = s.replace(/\n{2,}/g, "\n");
+      // Garante que termine com \n (exigido por OpenSSL)
+      if (!s.endsWith("\n")) s += "\n";
+      return s;
+    };
+
+    const cert = normalizePem(certPem!);
+    const key = normalizePem(keyPem!);
+
     // Cria cliente Deno com mTLS
-    const client = Deno.createHttpClient({
-      cert: certPem!,
-      key: keyPem!,
-    });
+    let client: Deno.HttpClient;
+    try {
+      client = Deno.createHttpClient({ cert, key });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return json(
+        {
+          ok: false,
+          error: `Falha ao carregar certificado/chave: ${msg}`,
+          hint: "Verifique se CORA_CERTIFICATE e CORA_PRIVATE_KEY contêm o PEM completo (BEGIN/END), sem caracteres extras. Cole o conteúdo exato dos arquivos .pem/.key.",
+          cert_first_line: cert.split("\n")[0],
+          cert_last_line: cert.trim().split("\n").slice(-1)[0],
+          key_first_line: key.split("\n")[0],
+          key_last_line: key.trim().split("\n").slice(-1)[0],
+          cert_lines: cert.split("\n").length,
+          key_lines: key.split("\n").length,
+        },
+        200,
+      );
+    }
 
     const body = new URLSearchParams({
       grant_type: "client_credentials",
