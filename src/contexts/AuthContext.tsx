@@ -8,6 +8,7 @@ interface AuthCtx {
   session: Session | null;
   user: User | null;
   role: Role;
+  cidade: string;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
