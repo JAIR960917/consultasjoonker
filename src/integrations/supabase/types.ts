@@ -140,6 +140,105 @@ export type Database = {
         }
         Relationships: []
       }
+      contract_template: {
+        Row: {
+          company_name: string
+          content: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string
+          content?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string
+          content?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contracts: {
+        Row: {
+          consulta_id: string | null
+          content: string
+          cpf: string
+          created_at: string
+          endereco: string
+          id: string
+          nome: string
+          signature_data: Json | null
+          signature_external_id: string | null
+          signature_provider: string | null
+          signature_url: string | null
+          signed_at: string | null
+          status: string
+          telefone: string
+          updated_at: string
+          user_id: string
+          venda_id: string | null
+        }
+        Insert: {
+          consulta_id?: string | null
+          content: string
+          cpf: string
+          created_at?: string
+          endereco: string
+          id?: string
+          nome: string
+          signature_data?: Json | null
+          signature_external_id?: string | null
+          signature_provider?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          status?: string
+          telefone: string
+          updated_at?: string
+          user_id: string
+          venda_id?: string | null
+        }
+        Update: {
+          consulta_id?: string | null
+          content?: string
+          cpf?: string
+          created_at?: string
+          endereco?: string
+          id?: string
+          nome?: string
+          signature_data?: Json | null
+          signature_external_id?: string | null
+          signature_provider?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          status?: string
+          telefone?: string
+          updated_at?: string
+          user_id?: string
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_consulta_id_fkey"
+            columns: ["consulta_id"]
+            isOneToOne: false
+            referencedRelation: "consultas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
