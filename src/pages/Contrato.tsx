@@ -10,6 +10,7 @@ import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck } from
 import { maskCpf } from "@/lib/finance";
 import { downloadContractPdf } from "@/lib/pdf";
 import { SignatureMockDialog } from "@/components/SignatureMockDialog";
+import { ParcelasContrato } from "@/components/ParcelasContrato";
 
 interface ContractRow {
   id: string;
@@ -227,6 +228,8 @@ export default function Contrato() {
           </div>
         </CardContent>
       </Card>
+
+      <ParcelasContrato contratoId={c.id} contratoAssinado={assinado} />
 
       <SignatureMockDialog
         open={signDialog}
