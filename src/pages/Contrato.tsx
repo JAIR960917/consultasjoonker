@@ -21,6 +21,8 @@ interface ContractRow {
   status: string;
   signed_at: string | null;
   signature_url: string | null;
+  signature_provider: string | null;
+  signature_data: { signed_pdf_url?: string } | null;
   created_at: string;
 }
 
