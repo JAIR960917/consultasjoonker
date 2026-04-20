@@ -246,7 +246,6 @@ export default function Contrato() {
                 <p className="mt-1 text-xs text-white">Nº 1 DE 1</p>
                 <p className="mt-1 text-white">{tpl.company_name}</p>
               </div>
-              </div>
               {venda && (
                 <div className="text-right text-xs shrink-0 border-l border-border pl-4 !text-white">
                   {venda.primeiro_vencimento && (
