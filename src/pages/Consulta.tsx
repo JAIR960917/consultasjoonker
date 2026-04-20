@@ -20,7 +20,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { SaleAddressDialog, type AddressData } from "@/components/SaleAddressDialog";
-import { fillTemplate, valorExtenso, dataExtenso } from "@/lib/contract";
+import { fillTemplate, valorExtenso, dataExtenso, dataExtensoTotal } from "@/lib/contract";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Pendencia {
@@ -215,12 +215,16 @@ export default function Consulta() {
         valor_dividas_extenso: valorExtenso(somaDividas),
         data: new Date().toLocaleDateString("pt-BR"),
         data_extenso: dataExtenso(new Date()),
+        data_extenso_total: dataExtensoTotal(new Date()),
         cidade: cidadeUsuario || "",
         primeiro_vencimento: endereco.primeiroVencimento
           ? new Date(endereco.primeiroVencimento + "T00:00:00").toLocaleDateString("pt-BR")
           : "",
         primeiro_vencimento_extenso: endereco.primeiroVencimento
           ? dataExtenso(new Date(endereco.primeiroVencimento + "T00:00:00"))
+          : "",
+        primeiro_vencimento_extenso_total: endereco.primeiroVencimento
+          ? dataExtensoTotal(new Date(endereco.primeiroVencimento + "T00:00:00"))
           : "",
       });
 

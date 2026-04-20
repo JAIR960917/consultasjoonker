@@ -28,9 +28,11 @@ export const AVAILABLE_VARS = [
   { key: "valor_dividas_extenso", label: "Valor total de dívidas por extenso" },
   { key: "data", label: "Data atual (dd/mm/aaaa)" },
   { key: "data_extenso", label: "Data atual por extenso" },
+  { key: "data_extenso_total", label: "Data atual totalmente por extenso (dia e ano por extenso)" },
   { key: "cidade", label: "Cidade do usuário logado" },
   { key: "primeiro_vencimento", label: "Vencimento da 1ª parcela (dd/mm/aaaa)" },
   { key: "primeiro_vencimento_extenso", label: "Vencimento da 1ª parcela por extenso" },
+  { key: "primeiro_vencimento_extenso_total", label: "Vencimento da 1ª parcela totalmente por extenso" },
 ] as const;
 
 const MESES_PT = [
@@ -41,6 +43,22 @@ const MESES_PT = [
 /** Converte uma data para extenso. Ex.: "20 de abril de 2026" */
 export function dataExtenso(d: Date = new Date()): string {
   return `${d.getDate()} de ${MESES_PT[d.getMonth()]} de ${d.getFullYear()}`;
+}
+
+/** Converte um número inteiro (0-9999) para extenso em português. */
+function inteiroPorExtenso(n: number): string {
+  if (n === 0) return "zero";
+  const milhares = Math.floor(n / 1000);
+  const resto = n % 1000;
+  const partes: string[] = [];
+  if (milhares > 0) partes.push(milhares === 1 ? "mil" : `${ateMil(milhares)} mil`);
+  if (resto > 0) partes.push(ateMil(resto));
+  return partes.join(" e ");
+}
+
+/** Converte uma data para extenso totalmente. Ex.: "dia vinte e nove de abril de dois mil e vinte e seis" */
+export function dataExtensoTotal(d: Date = new Date()): string {
+  return `dia ${inteiroPorExtenso(d.getDate())} de ${MESES_PT[d.getMonth()]} de ${inteiroPorExtenso(d.getFullYear())}`;
 }
 
 /** Máscara simples de telefone brasileiro: (11) 91234-5678 ou (11) 1234-5678 */
