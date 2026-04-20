@@ -24,6 +24,8 @@ interface ContractRow {
 interface TemplateRow {
   title: string;
   company_name: string;
+  company_cnpj: string;
+  company_address: string;
 }
 
 export default function Contrato() {
@@ -38,7 +40,7 @@ export default function Contrato() {
     (async () => {
       const [{ data: contract }, { data: template }] = await Promise.all([
         supabase.from("contracts").select("*").eq("id", id).maybeSingle(),
-        supabase.from("contract_template").select("title, company_name").limit(1).maybeSingle(),
+        supabase.from("contract_template").select("title, company_name, company_cnpj, company_address").limit(1).maybeSingle(),
       ]);
       if (contract) setC(contract as ContractRow);
       if (template) setTpl(template as TemplateRow);
