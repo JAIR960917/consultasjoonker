@@ -98,6 +98,8 @@ export function buildContractPdf(d: PdfData): jsPDF {
     const columnMatch = cityDateMatch
       ? [rawLine, cityDateMatch[1], cityDateMatch[2]]
       : spacedColumnsMatch;
+
+    if (columnMatch) {
       const leftText = columnMatch[1].trim();
       const rightText = columnMatch[2].trim();
       const leftLines = leftText ? doc.splitTextToSize(leftText, leftColumnWidth) : [""];
