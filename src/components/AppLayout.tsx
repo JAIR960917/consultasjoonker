@@ -1,15 +1,17 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranding } from "@/contexts/BrandingContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import {
-  LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet, FileSignature,
+  LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet, FileSignature, Sun, Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, role, signOut } = useAuth();
   const { branding } = useBranding();
+  const { theme, toggle } = useTheme();
   const nav = useNavigate();
 
   const items = [
@@ -68,6 +70,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {role ?? "—"}
             </p>
           </div>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            onClick={toggle}
+          >
+            {theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+            {theme === "dark" ? "Modo claro" : "Modo escuro"}
+          </Button>
           <Button
             variant="ghost"
             className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"

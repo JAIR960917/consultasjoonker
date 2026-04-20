@@ -33,9 +33,18 @@ export interface Branding {
 
 // Mapeamento campo da tabela -> nome da CSS var
 export const COLOR_FIELDS: { key: keyof Branding; cssVar: string; label: string; group: string }[] = [
-  { key: "background", cssVar: "--background", label: "Fundo", group: "Cores" },
-  { key: "primary_color", cssVar: "--primary", label: "Primária", group: "Cores" },
-  { key: "secondary", cssVar: "--secondary", label: "Secundária", group: "Cores" },
+  { key: "background", cssVar: "--background", label: "Fundo", group: "Cores base" },
+  { key: "foreground", cssVar: "--foreground", label: "Texto", group: "Cores base" },
+  { key: "card", cssVar: "--card", label: "Card", group: "Cores base" },
+
+  { key: "primary_color", cssVar: "--primary", label: "Botão primário", group: "Botões" },
+  { key: "primary_foreground", cssVar: "--primary-foreground", label: "Texto do primário", group: "Botões" },
+  { key: "secondary", cssVar: "--secondary", label: "Botão secundário", group: "Botões" },
+  { key: "secondary_foreground", cssVar: "--secondary-foreground", label: "Texto do secundário", group: "Botões" },
+  { key: "accent", cssVar: "--accent", label: "Botão destaque", group: "Botões" },
+  { key: "accent_foreground", cssVar: "--accent-foreground", label: "Texto do destaque", group: "Botões" },
+  { key: "destructive", cssVar: "--destructive", label: "Botão perigo", group: "Botões" },
+  { key: "destructive_foreground", cssVar: "--destructive-foreground", label: "Texto do perigo", group: "Botões" },
 ];
 
 // ---------- Conversores HEX <-> HSL ----------
