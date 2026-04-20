@@ -39,6 +39,11 @@ const SAMPLE = {
   valor_dividas: "2.345,67",
   valor_dividas_extenso: "dois mil trezentos e quarenta e cinco reais e sessenta e sete centavos",
   data: new Date().toLocaleDateString("pt-BR"),
+  primeiro_vencimento: (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toLocaleDateString("pt-BR");
+  })(),
 };
 
 export function ContractTemplateTab() {

@@ -11,6 +11,7 @@ import { maskPhone } from "@/lib/contract";
 export interface AddressData {
   endereco: string;
   telefone: string;
+  primeiroVencimento: string; // ISO yyyy-mm-dd
 }
 
 interface Props {
@@ -28,11 +29,19 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
   const [step, setStep] = useState<"form" | "confirm">("form");
   const [endereco, setEndereco] = useState("");
   const [telefone, setTelefone] = useState("");
+  // default: 30 dias a partir de hoje
+  const defaultVenc = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  })();
+  const [primeiroVencimento, setPrimeiroVencimento] = useState<string>(defaultVenc);
 
   const reset = () => {
     setStep("form");
     setEndereco("");
     setTelefone("");
+    setPrimeiroVencimento(defaultVenc);
   };
 
   const handleClose = (next: boolean) => {
@@ -40,7 +49,14 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
     onOpenChange(next);
   };
 
-  const podeAvancar = endereco.trim().length >= 8 && telefone.replace(/\D/g, "").length >= 10;
+  const podeAvancar =
+    endereco.trim().length >= 8 &&
+    telefone.replace(/\D/g, "").length >= 10 &&
+    !!primeiroVencimento;
+
+  const vencFmt = primeiroVencimento
+    ? new Date(primeiroVencimento + "T00:00:00").toLocaleDateString("pt-BR")
+    : "";
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -74,6 +90,15 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
                   onChange={(e) => setTelefone(maskPhone(e.target.value))}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="primeiro-venc">Vencimento da 1ª parcela</Label>
+                <Input
+                  id="primeiro-venc"
+                  type="date"
+                  value={primeiroVencimento}
+                  onChange={(e) => setPrimeiroVencimento(e.target.value)}
+                />
+              </div>
             </div>
 
             <DialogFooter>
@@ -101,6 +126,10 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">Telefone</p>
                 <p className="font-medium">{telefone}</p>
               </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Vencimento da 1ª parcela</p>
+                <p className="font-medium">{vencFmt}</p>
+              </div>
             </div>
 
             <DialogFooter>
@@ -108,7 +137,7 @@ export function SaleAddressDialog({ open, onOpenChange, onConfirm, clienteNome }
               <Button
                 className="bg-success hover:bg-success/90 text-success-foreground"
                 onClick={() => {
-                  onConfirm({ endereco: endereco.trim(), telefone });
+                  onConfirm({ endereco: endereco.trim(), telefone, primeiroVencimento });
                   reset();
                 }}
               >
