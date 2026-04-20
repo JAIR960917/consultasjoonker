@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { SaleAddressDialog, type AddressData } from "@/components/SaleAddressDialog";
+import { fillTemplate } from "@/lib/contract";
 
 interface Pendencia {
   credor: string;
@@ -37,6 +40,7 @@ interface ConsultaResult {
 }
 
 export default function Consulta() {
+  const nav = useNavigate();
   const [cpf, setCpf] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ConsultaResult | null>(null);
@@ -54,6 +58,9 @@ export default function Consulta() {
   const [valorEntrada, setValorEntrada] = useState<string>("");
   const [parcelas, setParcelas] = useState<number | null>(null);
   const [savingVenda, setSavingVenda] = useState(false);
+
+  // Dialog endereço/telefone
+  const [addressOpen, setAddressOpen] = useState(false);
 
   useEffect(() => {
     supabase.from("settings").select("*").limit(1).maybeSingle().then(({ data }) => {
