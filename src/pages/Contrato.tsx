@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
-import { maskCpf } from "@/lib/finance";
+import { maskCpf, formatCurrency } from "@/lib/finance";
 import { downloadContractPdf } from "@/lib/pdf";
 import { SignatureMockDialog } from "@/components/SignatureMockDialog";
 import { ParcelasContrato } from "@/components/ParcelasContrato";
@@ -25,6 +25,12 @@ interface ContractRow {
   signature_provider: string | null;
   signature_data: { signed_pdf_url?: string } | null;
   created_at: string;
+  venda_id: string | null;
+}
+
+interface VendaInfo {
+  valor_total: number;
+  primeiro_vencimento: string | null;
 }
 
 interface TemplateRow {
@@ -39,6 +45,7 @@ export default function Contrato() {
   const nav = useNavigate();
   const [c, setC] = useState<ContractRow | null>(null);
   const [tpl, setTpl] = useState<TemplateRow | null>(null);
+  const [venda, setVenda] = useState<VendaInfo | null>(null);
   const [signing, setSigning] = useState(false);
   const [signDialog, setSignDialog] = useState(false);
 
@@ -49,7 +56,30 @@ export default function Contrato() {
         supabase.from("contracts").select("*").eq("id", id).maybeSingle(),
         supabase.from("contract_template").select("title, company_name, company_cnpj, company_address").limit(1).maybeSingle(),
       ]);
-      if (contract) setC(contract as ContractRow);
+      if (contract) {
+        setC(contract as ContractRow);
+        if ((contract as ContractRow).venda_id) {
+          const { data: vendaRow } = await supabase
+            .from("vendas")
+            .select("valor_total")
+            .eq("id", (contract as ContractRow).venda_id!)
+            .maybeSingle();
+          // Tenta pegar a primeira parcela já criada; se não existir, fica null
+          const { data: parcela1 } = await supabase
+            .from("parcelas")
+            .select("vencimento")
+            .eq("venda_id", (contract as ContractRow).venda_id!)
+            .order("numero_parcela", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (vendaRow) {
+            setVenda({
+              valor_total: Number(vendaRow.valor_total),
+              primeiro_vencimento: parcela1?.vencimento ?? null,
+            });
+          }
+        }
+      }
       if (template) setTpl(template as TemplateRow);
     })();
   }, [id]);
