@@ -90,18 +90,32 @@ Deno.serve(async (req) => {
       return [...out];
     };
 
+    const certCandidates = buildPemCandidates(certPem, "cert");
+    const keyCandidates = buildPemCandidates(keyPem, "key");
+    const certLooksLikeKey = /BEGIN [A-Z ]*PRIVATE KEY/.test(certPem);
+    const keyLooksLikeCert = /BEGIN CERTIFICATE/.test(keyPem);
+
     let client: Deno.HttpClient | null = null;
-    const certs = buildPemCandidates(certPem, "cert");
-    const keys = buildPemCandidates(keyPem, "key");
     let lastErr = "";
-    for (const cert of certs) {
-      for (const key of keys) {
-        try { client = Deno.createHttpClient({ cert, key }); break; }
-        catch (e) { lastErr = e instanceof Error ? e.message : String(e); }
+    const tryPair = (cert: string, key: string) => {
+      try { return Deno.createHttpClient({ cert, key }); }
+      catch (e) { lastErr = e instanceof Error ? e.message : String(e); return null; }
+    };
+    outer: for (const cert of certCandidates) {
+      for (const key of keyCandidates) {
+        client = tryPair(cert, key);
+        if (client) break outer;
       }
-      if (client) break;
     }
-    if (!client) return json({ ok: false, error: `mTLS: ${lastErr}` }, 500);
+    if (!client && certLooksLikeKey && keyLooksLikeCert) {
+      outer2: for (const cert of keyCandidates) {
+        for (const key of certCandidates) {
+          client = tryPair(cert, key);
+          if (client) break outer2;
+        }
+      }
+    }
+    if (!client) return json({ ok: false, error: `mTLS: ${lastErr || "Unable to decode certificate"}` }, 500);
 
     // Token
     const tokenResp = await fetch(CORA_TOKEN_URL, {
