@@ -13,6 +13,7 @@ import Historico from "./pages/Historico";
 import Configuracoes from "./pages/Configuracoes";
 import Usuarios from "./pages/Usuarios";
 import Contrato from "./pages/Contrato";
+import Contratos from "./pages/Contratos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/historico" element={<ProtectedRoute><Historico /></ProtectedRoute>} />
             <Route path="/configuracoes" element={<ProtectedRoute adminOnly><Configuracoes /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute adminOnly><Usuarios /></ProtectedRoute>} />
+            <Route path="/contratos" element={<ProtectedRoute><Contratos /></ProtectedRoute>} />
             <Route path="/contrato/:id" element={<ProtectedRoute><Contrato /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
