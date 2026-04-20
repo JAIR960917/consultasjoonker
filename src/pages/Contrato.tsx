@@ -232,18 +232,18 @@ export default function Contrato() {
                 <p className="mt-1 text-white">{tpl.company_name}</p>
               </div>
               {venda && (
-                <div className="text-right text-xs shrink-0 border-l border-border pl-4 text-white">
+                <div className="text-right text-xs shrink-0 border-l border-border pl-4 !text-white">
                   {venda.primeiro_vencimento && (
-                    <p>
-                      <span className="text-white">Vencimento: </span>
-                      <span className="font-semibold text-white">
+                    <p className="!text-white">
+                      <span className="!text-white">Vencimento: </span>
+                      <span className="font-semibold !text-white">
                         {new Date(venda.primeiro_vencimento + "T00:00:00").toLocaleDateString("pt-BR")}
                       </span>
                     </p>
                   )}
-                  <p className="mt-1">
-                    <span className="text-white">Valor total: </span>
-                    <span className="font-semibold text-white">{brl(venda.valor_total)}</span>
+                  <p className="mt-1 !text-white">
+                    <span className="!text-white">Valor total: </span>
+                    <span className="font-semibold !text-white">{brl(venda.valor_total)}</span>
                   </p>
                 </div>
               )}
