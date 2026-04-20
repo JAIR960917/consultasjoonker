@@ -50,58 +50,111 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validação mínima do formato PEM
-    const certOk = certPem!.includes("BEGIN CERTIFICATE");
-    const keyOk = keyPem!.includes("BEGIN") && keyPem!.includes("PRIVATE KEY");
-    if (!certOk || !keyOk) {
-      return json(
-        {
-          ok: false,
-          error:
-            "Formato PEM inválido. CORA_CERTIFICATE deve conter 'BEGIN CERTIFICATE' e CORA_PRIVATE_KEY deve conter 'BEGIN PRIVATE KEY'.",
-          cert_ok: certOk,
-          key_ok: keyOk,
-        },
-        400,
-      );
-    }
+    // Tenta aceitar PEM em vários formatos comuns:
+    // - com quebras reais
+    // - com "\\n" literal
+    // - string JSON escapada
+    // - conteúdo base64 do arquivo PEM
+    const buildPemCandidates = (raw: string, kind: "cert" | "key") => {
+      const out = new Set<string>();
 
-    // Normaliza PEM: converte \r\n -> \n, \n literal -> quebra real, e
-    // garante que header/footer fiquem em linhas próprias (a Cora rejeita
-    // qualquer caractere extra nas linhas BEGIN/END).
-    const normalizePem = (raw: string): string => {
-      let s = raw.trim();
-      // Se foi colado como uma linha só com "\n" literais, converte
-      if (s.includes("\\n")) s = s.replace(/\\n/g, "\n");
-      // Normaliza CRLF
-      s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-      // Remove linhas em branco duplicadas
-      s = s.replace(/\n{2,}/g, "\n");
-      // Garante que termine com \n (exigido por OpenSSL)
-      if (!s.endsWith("\n")) s += "\n";
-      return s;
+      const add = (value: string | null | undefined) => {
+        if (!value) return;
+        let s = value.trim();
+        if (!s) return;
+        s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        s = s.replace(/\n{3,}/g, "\n\n");
+        if (!s.endsWith("\n")) s += "\n";
+        out.add(s);
+      };
+
+      add(raw);
+      add(raw.replace(/\\n/g, "\n").replace(/\\r/g, ""));
+
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === "string") add(parsed);
+      } catch {
+        // ignore
+      }
+
+      const unquoted = raw.replace(/^['"]|['"]$/g, "");
+      if (unquoted !== raw) add(unquoted);
+
+      const normalizedLiteral = unquoted.replace(/\\n/g, "\n").replace(/\\r/g, "");
+      if (normalizedLiteral !== raw) add(normalizedLiteral);
+
+      if (!/BEGIN [A-Z ]+/.test(raw)) {
+        try {
+          const decoded = atob(raw.replace(/\s+/g, ""));
+          if (/BEGIN [A-Z ]+/.test(decoded)) add(decoded);
+        } catch {
+          // ignore
+        }
+      }
+
+      const label = kind === "cert" ? "CERTIFICATE" : "(?:RSA |EC |)PRIVATE KEY";
+      const inlineMatch = normalizedLiteral.match(
+        new RegExp(`-----BEGIN ${label}-----\\s*([A-Za-z0-9+/=\\s]+?)\\s*-----END ${label}-----`, "m"),
+      );
+      if (inlineMatch) {
+        const body = inlineMatch[1].replace(/\s+/g, "\n");
+        const begin = kind === "cert" ? "-----BEGIN CERTIFICATE-----" : normalizedLiteral.match(/-----BEGIN ([A-Z ]+PRIVATE KEY)-----/)?.[0] ?? "-----BEGIN PRIVATE KEY-----";
+        const end = kind === "cert" ? "-----END CERTIFICATE-----" : normalizedLiteral.match(/-----END ([A-Z ]+PRIVATE KEY)-----/)?.[0] ?? "-----END PRIVATE KEY-----";
+        add(`${begin}\n${body}\n${end}\n`);
+      }
+
+      return [...out];
     };
 
-    const cert = normalizePem(certPem!);
-    const key = normalizePem(keyPem!);
+    const certCandidates = buildPemCandidates(certPem!, "cert");
+    const keyCandidates = buildPemCandidates(keyPem!, "key");
 
-    // Cria cliente Deno com mTLS
-    let client: Deno.HttpClient;
-    try {
-      client = Deno.createHttpClient({ cert, key });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+    const certLooksLikeKey = /BEGIN [A-Z ]*PRIVATE KEY/.test(certPem!);
+    const keyLooksLikeCert = /BEGIN CERTIFICATE/.test(keyPem!);
+
+    let client: Deno.HttpClient | null = null;
+    let lastError = "";
+
+    const tryCreateClient = (cert: string, key: string) => {
+      try {
+        return Deno.createHttpClient({ cert, key });
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e);
+        return null;
+      }
+    };
+
+    for (const cert of certCandidates) {
+      for (const key of keyCandidates) {
+        client = tryCreateClient(cert, key);
+        if (client) break;
+      }
+      if (client) break;
+    }
+
+    if (!client && certLooksLikeKey && keyLooksLikeCert) {
+      for (const cert of keyCandidates) {
+        for (const key of certCandidates) {
+          client = tryCreateClient(cert, key);
+          if (client) break;
+        }
+        if (client) break;
+      }
+    }
+
+    if (!client) {
       return json(
         {
           ok: false,
-          error: `Falha ao carregar certificado/chave: ${msg}`,
-          hint: "Verifique se CORA_CERTIFICATE e CORA_PRIVATE_KEY contêm o PEM completo (BEGIN/END), sem caracteres extras. Cole o conteúdo exato dos arquivos .pem/.key.",
-          cert_first_line: cert.split("\n")[0],
-          cert_last_line: cert.trim().split("\n").slice(-1)[0],
-          key_first_line: key.split("\n")[0],
-          key_last_line: key.trim().split("\n").slice(-1)[0],
-          cert_lines: cert.split("\n").length,
-          key_lines: key.split("\n").length,
+          error: `Falha ao carregar certificado/chave: ${lastError || "Unable to decode certificate"}`,
+          hint: certLooksLikeKey && keyLooksLikeCert
+            ? "Os secrets parecem invertidos: CORA_CERTIFICATE contém uma private key e CORA_PRIVATE_KEY contém um certificate."
+            : "Os secrets não estão em PEM válido. Cole o conteúdo exato dos arquivos certificate.pem e private-key.key, incluindo BEGIN/END.",
+          cert_candidates: certCandidates.length,
+          key_candidates: keyCandidates.length,
+          cert_first_line: certCandidates[0]?.split("\n")[0] ?? null,
+          key_first_line: keyCandidates[0]?.split("\n")[0] ?? null,
         },
         200,
       );
