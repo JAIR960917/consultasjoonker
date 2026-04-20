@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -41,6 +42,12 @@ export default function Consulta() {
   const [result, setResult] = useState<ConsultaResult | null>(null);
   const [consultaId, setConsultaId] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsLite | null>(null);
+
+  // Simulação
+  const [modoSimulacao, setModoSimulacao] = useState(false);
+  const [simNome, setSimNome] = useState("");
+  const [simNascimento, setSimNascimento] = useState("");
+  const [simScore, setSimScore] = useState<string>("850");
 
   // Venda
   const [valorTotal, setValorTotal] = useState<string>("");
@@ -88,9 +95,15 @@ export default function Consulta() {
     setResult(null); setConsultaId(null);
     setValorTotal(""); setValorEntrada(""); setParcelas(null);
     try {
-      const { data, error } = await supabase.functions.invoke("consulta-cpf", {
-        body: { cpf: cpf.replace(/\D/g, "") },
-      });
+      const payload: Record<string, unknown> = { cpf: cpf.replace(/\D/g, "") };
+      if (modoSimulacao) {
+        payload.simulacao = true;
+        payload.nome = simNome.trim() || "Cliente Simulado";
+        payload.dataNascimento = simNascimento || null;
+        const s = parseInt(simScore, 10);
+        payload.score = Number.isFinite(s) ? s : 850;
+      }
+      const { data, error } = await supabase.functions.invoke("consulta-cpf", { body: payload });
       if (error) throw error;
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
       setResult(data as ConsultaResult);
@@ -100,7 +113,7 @@ export default function Consulta() {
         .select("id").eq("cpf", (data as ConsultaResult).cpf)
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (c) setConsultaId(c.id);
-      toast.success("Consulta concluída");
+      toast.success(modoSimulacao ? "Simulação carregada" : "Consulta concluída");
     } catch (e: unknown) {
       toast.error("Falha na consulta", { description: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -164,7 +177,17 @@ export default function Consulta() {
       </header>
 
       <Card className="shadow-card print:hidden">
-        <CardContent className="p-6">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
+            <div>
+              <p className="text-sm font-medium">Modo simulação</p>
+              <p className="text-xs text-muted-foreground">
+                Use para simular uma venda sem consultar o Serasa (ex.: testes/treinamento).
+              </p>
+            </div>
+            <Switch checked={modoSimulacao} onCheckedChange={setModoSimulacao} />
+          </div>
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-2">
               <Label htmlFor="cpf">CPF</Label>
@@ -173,9 +196,34 @@ export default function Consulta() {
             </div>
             <Button onClick={consultar} disabled={busy || cpf.replace(/\D/g, "").length !== 11}
               size="lg" className="bg-gradient-primary">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="mr-2 h-4 w-4" />Consultar</>}
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="mr-2 h-4 w-4" />{modoSimulacao ? "Simular" : "Consultar"}</>}
             </Button>
           </div>
+
+          {modoSimulacao && (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="sim-nome">Nome completo</Label>
+                <Input id="sim-nome" placeholder="Nome do cliente" value={simNome}
+                  onChange={(e) => setSimNome(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sim-nasc">Data de nascimento</Label>
+                <Input id="sim-nasc" type="date" value={simNascimento}
+                  onChange={(e) => setSimNascimento(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sim-score">Score (0–1000)</Label>
+                <Input id="sim-score" inputMode="numeric" value={simScore}
+                  onChange={(e) => setSimScore(e.target.value.replace(/\D/g, ""))} />
+              </div>
+              <div className="sm:col-span-2 flex items-end">
+                <p className="text-xs text-muted-foreground">
+                  Dica para teste: CPF <span className="font-mono">124.036.644-21</span>, Jair Azevedo da Silva Filho, 29/03/2001.
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
