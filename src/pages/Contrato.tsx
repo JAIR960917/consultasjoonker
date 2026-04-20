@@ -208,6 +208,16 @@ export default function Contrato() {
             <FileDown className="mr-2 h-4 w-4" /> Baixar cópia
           </Button>
 
+          {role === "admin" && (
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialog(true)}
+              className="border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Excluir
+            </Button>
+          )}
+
           {assinado && (
             <TooltipProvider>
               <Tooltip>
