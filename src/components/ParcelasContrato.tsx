@@ -37,6 +37,7 @@ export function ParcelasContrato({ contratoId, contratoAssinado }: {
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
   const [loading, setLoading] = useState(true);
   const [emitindo, setEmitindo] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
   const [intervalo, setIntervalo] = useState("30");
 
   const carregar = async () => {
@@ -71,6 +72,21 @@ export function ParcelasContrato({ contratoId, contratoAssinado }: {
     }
   };
 
+  const sincronizar = async () => {
+    setSincronizando(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sincronizar-status-boletos", {
+        body: { contrato_id: contratoId },
+      });
+      if (error) toast.error("Falha ao sincronizar", { description: error.message });
+      else if (!data?.ok) toast.error("Erro", { description: data?.error });
+      else toast.success(data?.message || "Status sincronizado");
+      await carregar();
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
   const copy = (text?: string | null) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -98,6 +114,12 @@ export function ParcelasContrato({ contratoId, contratoAssinado }: {
           <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
+          {parcelas.some((p) => p.cora_invoice_id) && (
+            <Button variant="outline" size="sm" onClick={sincronizar} disabled={sincronizando}>
+              {sincronizando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Sincronizar status
+            </Button>
+          )}
           {contratoAssinado && !todasEmitidas && (
             <Button onClick={emitir} disabled={emitindo} className="bg-gradient-primary">
               {emitindo ? (
