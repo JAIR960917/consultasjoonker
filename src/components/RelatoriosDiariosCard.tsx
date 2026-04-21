@@ -26,6 +26,8 @@ interface Relatorio {
   valor_total: number;
   pagamentos: Pagamento[];
   concluido_em: string | null;
+  empresa_id: string | null;
+  empresa_nome?: string;
 }
 
 function formatDataRef(d: string) {
@@ -48,15 +50,23 @@ export function RelatoriosDiariosCard() {
 
   const carregar = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("relatorios_diarios")
-      .select("*")
-      .order("data_referencia", { ascending: false })
-      .limit(10);
+    const [{ data, error }, { data: emps }] = await Promise.all([
+      supabase
+        .from("relatorios_diarios")
+        .select("*")
+        .order("data_referencia", { ascending: false })
+        .limit(20),
+      supabase.from("empresas").select("id, nome"),
+    ]);
     if (error) {
       toast.error("Erro ao carregar relatórios", { description: error.message });
     } else {
-      setRelatorios((data ?? []) as unknown as Relatorio[]);
+      const empMap = new Map((emps ?? []).map((e) => [e.id, e.nome]));
+      const enriched = (data ?? []).map((r: any) => ({
+        ...r,
+        empresa_nome: r.empresa_id ? (empMap.get(r.empresa_id) ?? "—") : "Todas",
+      }));
+      setRelatorios(enriched as unknown as Relatorio[]);
     }
     setLoading(false);
   };
@@ -120,6 +130,7 @@ export function RelatoriosDiariosCard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Data</TableHead>
+                      <TableHead>Empresa</TableHead>
                       <TableHead>Pagamentos</TableHead>
                       <TableHead>Valor total</TableHead>
                       <TableHead>Status</TableHead>
@@ -130,6 +141,7 @@ export function RelatoriosDiariosCard() {
                     {relatorios.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell className="font-medium">{formatDataRef(r.data_referencia)}</TableCell>
+                        <TableCell className="text-muted-foreground">{r.empresa_nome ?? "—"}</TableCell>
                         <TableCell>{r.total_pagamentos}</TableCell>
                         <TableCell>{brl(Number(r.valor_total))}</TableCell>
                         <TableCell>
@@ -159,6 +171,9 @@ export function RelatoriosDiariosCard() {
           <DialogHeader>
             <DialogTitle>
               Relatório de {aberto && formatDataRef(aberto.data_referencia)}
+              {aberto?.empresa_nome && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">— {aberto.empresa_nome}</span>
+              )}
               {aberto?.status === "concluido" && (
                 <Badge className="ml-2 bg-success text-success-foreground">Concluído</Badge>
               )}

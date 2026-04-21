@@ -1,8 +1,9 @@
 // Edge Function: gerar-relatorio-diario
-// Gera o relatório de boletos pagos.
+// Gera um relatório de boletos pagos POR EMPRESA.
 // Regra: em dias úteis (ter-sex), pega pagamentos do dia anterior.
 // Nas segundas-feiras, pega pagamentos de sábado + domingo (fim de semana).
-// Pode ser chamado por cron ou manualmente.
+// Pode ser chamado por cron (gera para todas as empresas ativas) ou manualmente
+// (com empresa_id específico).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -20,18 +21,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Aceita data_referencia opcional via body. Se vier, gera SÓ aquele dia.
-    // Se não vier, calcula automaticamente:
-    //  - Segunda: agrupa sábado + domingo (data_referencia = domingo)
-    //  - Demais dias: dia anterior
     const body = (await req.json().catch(() => ({}))) as {
       data_referencia?: string;
       data_inicio?: string;
       data_fim?: string;
+      empresa_id?: string;
     };
 
     let dataInicio: string;
-    let dataFim: string; // data_referencia do registro (usada como chave única)
+    let dataFim: string;
     let dataRef: string;
 
     if (body.data_inicio && body.data_fim) {
@@ -49,70 +47,96 @@ Deno.serve(async (req) => {
       dataRef = range.fim;
     }
 
-    const inicioISO = `${dataInicio}T00:00:00-03:00`;
-    const fimISO = `${dataFim}T23:59:59-03:00`;
-
-    // Busca parcelas pagas no intervalo
-    const { data: parcelas, error } = await admin
-      .from("parcelas")
-      .select("id, numero_parcela, total_parcelas, valor, valor_pago, pago_em, venda_id, contrato_id, linha_digitavel, cora_invoice_id")
-      .eq("status", "pago")
-      .gte("pago_em", inicioISO)
-      .lte("pago_em", fimISO);
-
-    if (error) throw error;
-
-    // Enriquece com nome/cpf do cliente via contracts ou vendas
-    const pagamentos: any[] = [];
-    for (const p of parcelas ?? []) {
-      let nome = "—";
-      let cpf = "—";
-      if (p.contrato_id) {
-        const { data: c } = await admin
-          .from("contracts")
-          .select("nome, cpf")
-          .eq("id", p.contrato_id)
-          .maybeSingle();
-        if (c) { nome = c.nome; cpf = c.cpf; }
-      } else if (p.venda_id) {
-        const { data: v } = await admin
-          .from("vendas")
-          .select("nome, cpf")
-          .eq("id", p.venda_id)
-          .maybeSingle();
-        if (v) { nome = v.nome ?? "—"; cpf = v.cpf; }
-      }
-
-      pagamentos.push({
-        nome,
-        cpf,
-        numero_parcela: p.numero_parcela,
-        total_parcelas: p.total_parcelas,
-        valor: Number(p.valor_pago ?? p.valor),
-        pago_em: p.pago_em,
-        venda_id: p.venda_id,
-        contrato_id: p.contrato_id,
-      });
+    // Busca empresas a processar
+    let empresas: Array<{ id: string; nome: string }> = [];
+    if (body.empresa_id) {
+      const { data } = await admin
+        .from("empresas").select("id, nome").eq("id", body.empresa_id).maybeSingle();
+      if (data) empresas = [data];
+    } else {
+      const { data } = await admin
+        .from("empresas").select("id, nome").eq("ativo", true);
+      empresas = data ?? [];
     }
 
-    pagamentos.sort((a, b) => (a.pago_em ?? "").localeCompare(b.pago_em ?? ""));
-    const valorTotal = pagamentos.reduce((s, x) => s + Number(x.valor || 0), 0);
+    // Se não houver empresas cadastradas, ainda gera 1 relatório "sem empresa"
+    // (compatibilidade com dados antigos antes do multi-empresa).
+    if (empresas.length === 0) {
+      empresas = [{ id: "", nome: "(sem empresa)" }];
+    }
 
-    // Upsert (1 por data_referencia)
-    const { data: rel, error: upErr } = await admin
-      .from("relatorios_diarios")
-      .upsert({
-        data_referencia: dataRef,
-        status: "pendente",
-        total_pagamentos: pagamentos.length,
-        valor_total: valorTotal,
-        pagamentos,
-      }, { onConflict: "data_referencia" })
-      .select()
-      .single();
-    if (upErr) throw upErr;
+    const inicioISO = `${dataInicio}T00:00:00-03:00`;
+    const fimISO = `${dataFim}T23:59:59-03:00`;
+    const relatoriosGerados: any[] = [];
 
-    return json({ ok: true, relatorio: rel, intervalo: { inicio: dataInicio, fim: dataFim } });
+    for (const empresa of empresas) {
+      const empresaIdReal = empresa.id || null;
+
+      // Busca parcelas pagas no intervalo, filtradas pela empresa
+      let q = admin
+        .from("parcelas")
+        .select("id, numero_parcela, total_parcelas, valor, valor_pago, pago_em, venda_id, contrato_id, linha_digitavel, cora_invoice_id, empresa_id")
+        .eq("status", "pago")
+        .gte("pago_em", inicioISO)
+        .lte("pago_em", fimISO);
+
+      if (empresaIdReal) q = q.eq("empresa_id", empresaIdReal);
+      else q = q.is("empresa_id", null);
+
+      const { data: parcelas, error } = await q;
+      if (error) throw error;
+
+      const pagamentos: any[] = [];
+      for (const p of parcelas ?? []) {
+        let nome = "—";
+        let cpf = "—";
+        if (p.contrato_id) {
+          const { data: c } = await admin
+            .from("contracts").select("nome, cpf").eq("id", p.contrato_id).maybeSingle();
+          if (c) { nome = c.nome; cpf = c.cpf; }
+        } else if (p.venda_id) {
+          const { data: v } = await admin
+            .from("vendas").select("nome, cpf").eq("id", p.venda_id).maybeSingle();
+          if (v) { nome = v.nome ?? "—"; cpf = v.cpf; }
+        }
+
+        pagamentos.push({
+          nome, cpf,
+          numero_parcela: p.numero_parcela,
+          total_parcelas: p.total_parcelas,
+          valor: Number(p.valor_pago ?? p.valor),
+          pago_em: p.pago_em,
+          venda_id: p.venda_id,
+          contrato_id: p.contrato_id,
+        });
+      }
+
+      pagamentos.sort((a, b) => (a.pago_em ?? "").localeCompare(b.pago_em ?? ""));
+      const valorTotal = pagamentos.reduce((s, x) => s + Number(x.valor || 0), 0);
+
+      // Upsert por (data_referencia, empresa_id)
+      const { data: rel, error: upErr } = await admin
+        .from("relatorios_diarios")
+        .upsert({
+          data_referencia: dataRef,
+          empresa_id: empresaIdReal,
+          status: "pendente",
+          total_pagamentos: pagamentos.length,
+          valor_total: valorTotal,
+          pagamentos,
+        }, { onConflict: "data_referencia,empresa_id" })
+        .select()
+        .single();
+      if (upErr) throw upErr;
+
+      relatoriosGerados.push({ empresa: empresa.nome, relatorio: rel });
+    }
+
+    return json({
+      ok: true,
+      intervalo: { inicio: dataInicio, fim: dataFim },
+      relatorios: relatoriosGerados,
+    });
   } catch (err) {
     console.error("gerar-relatorio-diario error", err);
     return json({ ok: false, error: err instanceof Error ? err.message : String(err) }, 500);
@@ -126,19 +150,13 @@ function json(data: unknown, status = 200) {
   });
 }
 
-// Calcula intervalo automático em America/Sao_Paulo:
-// - Segunda-feira: sábado 00:00 → domingo 23:59 (data_ref = domingo)
-// - Demais dias: dia anterior (data_ref = ontem)
 function calcularIntervaloAutomatico(): { inicio: string; fim: string } {
   const hojeSP = dataSP(new Date());
   const [y, m, d] = hojeSP.split("-").map(Number);
-  // Date em UTC representando o dia "hoje" em SP
   const hojeUTC = new Date(Date.UTC(y, m - 1, d));
-  // getUTCDay: 0=domingo, 1=segunda, ..., 6=sábado
   const diaSemana = hojeUTC.getUTCDay();
 
   if (diaSemana === 1) {
-    // Segunda-feira: pega sábado + domingo
     const sabado = new Date(hojeUTC);
     sabado.setUTCDate(sabado.getUTCDate() - 2);
     const domingo = new Date(hojeUTC);
@@ -149,7 +167,6 @@ function calcularIntervaloAutomatico(): { inicio: string; fim: string } {
     };
   }
 
-  // Outros dias: dia anterior
   const ontem = new Date(hojeUTC);
   ontem.setUTCDate(ontem.getUTCDate() - 1);
   const ymd = ontem.toISOString().slice(0, 10);
@@ -161,5 +178,5 @@ function dataSP(d: Date): string {
     timeZone: "America/Sao_Paulo",
     year: "numeric", month: "2-digit", day: "2-digit",
   });
-  return fmt.format(d); // YYYY-MM-DD
+  return fmt.format(d);
 }
