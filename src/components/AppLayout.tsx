@@ -6,7 +6,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
-  LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet, FileSignature, Sun, Moon, Menu,
+  LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet, FileSignature, Sun, Moon, Menu, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { to: "/contratos", label: "Contratos", icon: FileSignature, admin: false },
     { to: "/configuracoes", label: "Configurações", icon: Settings, admin: true },
     { to: "/usuarios", label: "Usuários", icon: Users, admin: true },
+    { to: "/empresas", label: "Empresas", icon: Building2, admin: true },
   ];
 
   const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => (
