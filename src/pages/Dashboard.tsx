@@ -60,6 +60,10 @@ export default function Dashboard() {
         ))}
       </div>
 
+      <div className="mt-8">
+        <RelatoriosDiariosCard />
+      </div>
+
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <Card className="shadow-card">
           <CardContent className="p-6">
