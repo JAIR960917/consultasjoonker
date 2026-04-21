@@ -31,10 +31,14 @@ Deno.serve(async (req) => {
     const password = String(body.password || "");
     const full_name = String(body.full_name || "").trim();
     const cidade = String(body.cidade || "").trim();
+    const empresa_id = body.empresa_id ? String(body.empresa_id) : null;
     const role = body.role === "admin" ? "admin" : "gerente";
 
     if (!email || password.length < 6) {
       return new Response(JSON.stringify({ error: "Email e senha (>=6) obrigatórios" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (role === "gerente" && !empresa_id) {
+      return new Response(JSON.stringify({ error: "Gerente precisa estar vinculado a uma empresa" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const adminClient = createClient(
@@ -43,7 +47,8 @@ Deno.serve(async (req) => {
     );
 
     const { data: created, error } = await adminClient.auth.admin.createUser({
-      email, password, email_confirm: true, user_metadata: { full_name, cidade },
+      email, password, email_confirm: true,
+      user_metadata: { full_name, cidade, empresa_id: empresa_id ?? "" },
     });
     if (error) throw error;
 
@@ -52,9 +57,10 @@ Deno.serve(async (req) => {
       await adminClient.from("user_roles").delete().eq("user_id", created.user!.id);
       await adminClient.from("user_roles").insert({ user_id: created.user!.id, role: "admin" });
     }
-    if (full_name || cidade) {
-      await adminClient.from("profiles").update({ full_name, cidade }).eq("user_id", created.user!.id);
-    }
+    // Atualiza dados que o trigger não cobre/sobrescreve
+    await adminClient.from("profiles").update({
+      full_name, cidade, empresa_id,
+    }).eq("user_id", created.user!.id);
 
     return new Response(JSON.stringify({ ok: true, userId: created.user!.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

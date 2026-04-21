@@ -42,7 +42,7 @@ interface ConsultaResult {
 
 export default function Consulta() {
   const nav = useNavigate();
-  const { cidade: cidadeUsuario, role } = useAuth();
+  const { cidade: cidadeUsuario, role, empresaId } = useAuth();
   const [cpf, setCpf] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ConsultaResult | null>(null);
@@ -196,6 +196,7 @@ export default function Consulta() {
           valor_financiado: financiado,
           status: "aprovado",
           cidade: cidadeVenda,
+          empresa_id: empresaId,
           primeiro_vencimento: endereco.primeiroVencimento || null,
         })
         .select("id")
@@ -261,6 +262,7 @@ export default function Consulta() {
           content: filled,
           status: "pendente",
           cidade: cidadeVenda,
+          empresa_id: empresaId,
         })
         .select("id")
         .single();

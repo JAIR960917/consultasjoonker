@@ -46,10 +46,10 @@ Deno.serve(async (req) => {
     if (!contratoId) return json({ ok: false, error: "contrato_id obrigatório" }, 400);
     const intervaloDias = Number.isFinite(body.intervalo_dias) ? Number(body.intervalo_dias) : 30;
 
-    // 1) Carrega contrato
+    // 1) Carrega contrato (com empresa)
     const { data: contrato, error: contratoErr } = await admin
       .from("contracts")
-      .select("id, user_id, venda_id, status, nome, cpf")
+      .select("id, user_id, venda_id, status, nome, cpf, empresa_id")
       .eq("id", contratoId)
       .maybeSingle();
     if (contratoErr || !contrato) return json({ ok: false, error: "Contrato não encontrado" }, 404);
@@ -68,6 +68,17 @@ Deno.serve(async (req) => {
     }
     if (!contrato.venda_id) {
       return json({ ok: false, error: "Contrato sem venda vinculada" }, 400);
+    }
+
+    // Carrega empresa para descobrir slug dos secrets Cora
+    let empresaSlug: string | null = null;
+    if (contrato.empresa_id) {
+      const { data: emp } = await admin
+        .from("empresas").select("slug, ativo").eq("id", contrato.empresa_id).maybeSingle();
+      if (emp) {
+        if (!emp.ativo) return json({ ok: false, error: "Empresa inativa" }, 400);
+        empresaSlug = emp.slug;
+      }
     }
 
     // 2) Carrega venda
@@ -98,6 +109,7 @@ Deno.serve(async (req) => {
           user_id: venda.user_id,
           venda_id: venda.id,
           contrato_id: contrato.id,
+          empresa_id: contrato.empresa_id,
           numero_parcela: i,
           total_parcelas: venda.parcelas,
           valor: Number(venda.valor_parcela),
@@ -114,11 +126,14 @@ Deno.serve(async (req) => {
       parcelas = criadas ?? [];
     }
 
-    // 4) Setup mTLS Cora
-    const clientId = Deno.env.get("CORA_CLIENT_ID");
-    const certPem = Deno.env.get("CORA_CERTIFICATE");
-    const keyPem = Deno.env.get("CORA_PRIVATE_KEY");
-    if (!clientId || !certPem || !keyPem) return json({ ok: false, error: "Secrets Cora ausentes" }, 500);
+    // 4) Setup mTLS Cora — busca secrets por slug da empresa, com fallback global
+    const suffix = empresaSlug ? `_${empresaSlug}` : "";
+    const clientId = Deno.env.get(`CORA_CLIENT_ID${suffix}`) ?? Deno.env.get("CORA_CLIENT_ID");
+    const certPem  = Deno.env.get(`CORA_CERTIFICATE${suffix}`) ?? Deno.env.get("CORA_CERTIFICATE");
+    const keyPem   = Deno.env.get(`CORA_PRIVATE_KEY${suffix}`) ?? Deno.env.get("CORA_PRIVATE_KEY");
+    if (!clientId || !certPem || !keyPem) {
+      return json({ ok: false, error: `Secrets Cora ausentes${empresaSlug ? ` para empresa ${empresaSlug}` : ""}` }, 500);
+    }
 
     const httpClient = buildMtlsClient(certPem, keyPem);
     if (!httpClient) return json({ ok: false, error: "Falha mTLS (certificado/chave)" }, 500);

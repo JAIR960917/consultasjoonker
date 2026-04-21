@@ -9,6 +9,7 @@ interface AuthCtx {
   user: User | null;
   role: Role;
   cidade: string;
+  empresaId: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -22,18 +23,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<Role>(null);
   const [cidade, setCidade] = useState<string>("");
+  const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadRole = async (uid: string | undefined) => {
-    if (!uid) { setRole(null); setCidade(""); return; }
+    if (!uid) { setRole(null); setCidade(""); setEmpresaId(null); return; }
     const [{ data: roles }, { data: prof }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", uid),
-      supabase.from("profiles").select("cidade").eq("user_id", uid).maybeSingle(),
+      supabase.from("profiles").select("cidade, empresa_id").eq("user_id", uid).maybeSingle(),
     ]);
     if (roles?.some((r) => r.role === "admin")) setRole("admin");
     else if (roles?.some((r) => r.role === "gerente")) setRole("gerente");
     else setRole(null);
-    setCidade((prof as { cidade?: string } | null)?.cidade ?? "");
+    const p = prof as { cidade?: string; empresa_id?: string | null } | null;
+    setCidade(p?.cidade ?? "");
+    setEmpresaId(p?.empresa_id ?? null);
   };
 
   useEffect(() => {
@@ -42,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(sess?.user ?? null);
       // diferir queries para evitar deadlock
       if (sess?.user) setTimeout(() => loadRole(sess.user.id), 0);
-      else setRole(null);
+      else { setRole(null); setEmpresaId(null); }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -65,12 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setRole(null);
     setCidade("");
+    setEmpresaId(null);
   };
 
   const refreshRole = async () => { await loadRole(user?.id); };
 
   return (
-    <Ctx.Provider value={{ session, user, role, cidade, loading, signIn, signOut, refreshRole }}>
+    <Ctx.Provider value={{ session, user, role, cidade, empresaId, loading, signIn, signOut, refreshRole }}>
       {children}
     </Ctx.Provider>
   );
