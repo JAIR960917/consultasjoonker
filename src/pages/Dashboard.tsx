@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, History, TrendingUp, CheckCircle2, XCircle } from "lucide-react";
 import { brl } from "@/lib/finance";
+import { RelatoriosDiariosCard } from "@/components/RelatoriosDiariosCard";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -57,6 +58,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      <div className="mt-8">
+        <RelatoriosDiariosCard />
       </div>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">

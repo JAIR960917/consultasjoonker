@@ -419,6 +419,45 @@ export type Database = {
         }
         Relationships: []
       }
+      relatorios_diarios: {
+        Row: {
+          concluido_em: string | null
+          concluido_por: string | null
+          created_at: string
+          data_referencia: string
+          id: string
+          pagamentos: Json
+          status: string
+          total_pagamentos: number
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          concluido_em?: string | null
+          concluido_por?: string | null
+          created_at?: string
+          data_referencia: string
+          id?: string
+          pagamentos?: Json
+          status?: string
+          total_pagamentos?: number
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          concluido_em?: string | null
+          concluido_por?: string | null
+          created_at?: string
+          data_referencia?: string
+          id?: string
+          pagamentos?: Json
+          status?: string
+          total_pagamentos?: number
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           good_score: number
