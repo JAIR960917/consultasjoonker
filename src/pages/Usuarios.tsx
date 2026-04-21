@@ -16,27 +16,45 @@ interface Row {
   full_name: string;
   email: string;
   cidade: string;
+  empresa_id: string | null;
+  empresa_nome: string;
   role: string;
+}
+
+interface EmpresaOption {
+  id: string;
+  nome: string;
+  cidade: string;
 }
 
 export default function Usuarios() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [empresas, setEmpresas] = useState<EmpresaOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", cidade: "", role: "gerente" });
+  const [form, setForm] = useState({
+    full_name: "", email: "", password: "", cidade: "", role: "gerente", empresa_id: "",
+  });
 
   const load = async () => {
     setLoading(true);
-    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email, cidade");
-    const { data: roles } = await supabase.from("user_roles").select("user_id, role");
+    const [{ data: profiles }, { data: roles }, { data: emps }] = await Promise.all([
+      supabase.from("profiles").select("user_id, full_name, email, cidade, empresa_id"),
+      supabase.from("user_roles").select("user_id, role"),
+      supabase.from("empresas").select("id, nome, cidade").eq("ativo", true).order("nome"),
+    ]);
+    const empMap = new Map((emps ?? []).map((e) => [e.id, e.nome]));
     const merged: Row[] = (profiles ?? []).map((p) => ({
       user_id: p.user_id,
       full_name: p.full_name,
       email: p.email,
       cidade: (p as { cidade?: string }).cidade ?? "",
+      empresa_id: (p as { empresa_id?: string | null }).empresa_id ?? null,
+      empresa_nome: empMap.get((p as { empresa_id?: string }).empresa_id ?? "") ?? "—",
       role: roles?.find((r) => r.user_id === p.user_id)?.role ?? "—",
     }));
     setRows(merged);
+    setEmpresas((emps ?? []) as EmpresaOption[]);
     setLoading(false);
   };
 
@@ -44,20 +62,38 @@ export default function Usuarios() {
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.role === "gerente" && !form.empresa_id) {
+      toast.error("Selecione a empresa do gerente");
+      return;
+    }
     setCreating(true);
-    const { data, error } = await supabase.functions.invoke("admin-create-user", { body: form });
+    const payload = {
+      ...form,
+      empresa_id: form.empresa_id || null,
+    };
+    const { data, error } = await supabase.functions.invoke("admin-create-user", { body: payload });
     setCreating(false);
     if (error || (data as { error?: string })?.error) {
       toast.error("Erro ao criar usuário", { description: error?.message ?? (data as { error?: string }).error });
       return;
     }
     toast.success("Usuário criado");
-    setForm({ full_name: "", email: "", password: "", cidade: "", role: "gerente" });
+    setForm({ full_name: "", email: "", password: "", cidade: "", role: "gerente", empresa_id: "" });
     load();
   };
 
   const roleLabel = (r: string) =>
     r === "admin" ? "Administrador" : r === "gerente" ? "Gerente" : r;
+
+  // Auto-preenche cidade quando seleciona empresa
+  const onEmpresaChange = (id: string) => {
+    const emp = empresas.find((e) => e.id === id);
+    setForm((f) => ({
+      ...f,
+      empresa_id: id,
+      cidade: emp?.cidade || f.cidade,
+    }));
+  };
 
   return (
     <AppLayout>
@@ -74,17 +110,19 @@ export default function Usuarios() {
                 <tr>
                   <th className="px-4 py-3 font-medium">Nome</th>
                   <th className="px-4 py-3 font-medium">E-mail</th>
+                  <th className="px-4 py-3 font-medium">Empresa</th>
                   <th className="px-4 py-3 font-medium">Cidade</th>
                   <th className="px-4 py-3 font-medium">Papel</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={4} className="py-8 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></td></tr>
+                  <tr><td colSpan={5} className="py-8 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></td></tr>
                 ) : rows.map((r) => (
                   <tr key={r.user_id} className="border-b last:border-0">
                     <td className="px-4 py-3 font-medium">{r.full_name || "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.email}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{r.empresa_nome}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.cidade || "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -118,10 +156,6 @@ export default function Usuarios() {
                 <Input type="password" required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Cidade</Label>
-                <Input value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} placeholder="Ex.: São Paulo" />
-              </div>
-              <div className="space-y-1.5">
                 <Label>Papel</Label>
                 <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -130,6 +164,23 @@ export default function Usuarios() {
                     <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Empresa {form.role === "gerente" && <span className="text-destructive">*</span>}</Label>
+                <Select value={form.empresa_id} onValueChange={onEmpresaChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={empresas.length === 0 ? "Cadastre uma empresa primeiro" : "Selecione…"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {empresas.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>{e.nome}{e.cidade ? ` — ${e.cidade}` : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cidade</Label>
+                <Input value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} placeholder="Ex.: São Paulo" />
               </div>
               <Button type="submit" disabled={creating} className="w-full bg-gradient-primary">
                 {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar usuário"}
