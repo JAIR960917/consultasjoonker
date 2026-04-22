@@ -237,20 +237,39 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Resposta do link de upload inesperada", detail: uploadLinkJson ?? uploadLinkText.slice(0, 500) }, 502);
     }
 
-    // S3 pre-signed URL (SigV2): a query já contém AWSAccessKeyId, Signature,
-    // Expires e x-amz-security-token. Enviar o token como header também causou
-    // SignatureDoesNotMatch — vamos enviar APENAS Content-Type, conforme o
-    // StringToSign retornado pelo S3 (PUT \n \n application/pdf \n <expires> \n x-amz-security-token).
+    // S3 SigV2 com STS: o `x-amz-security-token` aparece na query mas o S3
+    // o inclui no StringToSign como header canonicalizado. Precisamos enviá-lo
+    // como header HTTP no PUT, com o valor exato decodificado.
+    // Extraímos o token preservando caracteres ('+' tratados como espaço pelo
+    // URLSearchParams quebram a assinatura, então parseamos manualmente).
+    let amzToken: string | null = null;
+    try {
+      const qs = uploadUrl.split("?")[1] ?? "";
+      for (const part of qs.split("&")) {
+        const eq = part.indexOf("=");
+        if (eq < 0) continue;
+        const k = part.slice(0, eq);
+        if (k === "x-amz-security-token") {
+          amzToken = decodeURIComponent(part.slice(eq + 1));
+          break;
+        }
+      }
+    } catch (_) { /* noop */ }
+
+    const putHeaders: Record<string, string> = { "Content-Type": "application/pdf" };
+    if (amzToken) putHeaders["x-amz-security-token"] = amzToken;
+
     console.info("autentica: PUT upload", {
       host: new URL(uploadUrl).host,
       path: new URL(uploadUrl).pathname,
-      hasTokenInQuery: uploadUrl.includes("x-amz-security-token"),
+      hasTokenHeader: !!amzToken,
+      tokenLen: amzToken?.length ?? 0,
       bytes: pdfBytes.byteLength,
     });
 
     const putResp = await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "Content-Type": "application/pdf" },
+      headers: putHeaders,
       body: pdfBytes,
     });
     if (!putResp.ok) {
