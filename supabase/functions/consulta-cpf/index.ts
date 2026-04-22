@@ -333,6 +333,23 @@ Deno.serve(async (req) => {
         raw: { simulacao: true, dataNascimento: body?.dataNascimento ?? null },
         dataNascimento: body?.dataNascimento ?? null,
       } as SerasaResult;
+
+      // Salva também simulações no cache para aparecerem em "Consultas Salvas"
+      const { error: cacheSimErr } = await supabase
+        .from("consultas_cache")
+        .upsert({
+          cpf,
+          nome: serasa.nome,
+          data_nascimento: serasa.dataNascimento,
+          score: serasa.score,
+          raw: serasa.raw as never,
+          pendencias: serasa.pendencias as never,
+          total_pendencias: serasa.totalPendencias,
+          soma_pendencias: serasa.somaPendencias,
+          consultado_em: new Date().toISOString(),
+          expira_em: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+        }, { onConflict: "cpf" });
+      if (cacheSimErr) console.error("Erro ao salvar cache (simulação):", cacheSimErr);
     } else {
       // 1) Tenta buscar do cache (válido por 3 meses)
       const { data: cached } = await supabase
