@@ -52,23 +52,33 @@ Deno.serve(async (req) => {
       if (!roleRow) return json({ ok: false, error: "Sem permissão" }, 403);
     }
 
-    // Extrai pedidoId do signature_data
+    // Extrai pedidoId do signature_data ou do signature_external_id
     const sigData: any = contrato.signature_data ?? {};
     const pedidoId =
       sigData?.data?.pedidoId ??
       sigData?.pedidoId ??
       sigData?.data?.id ??
+      contrato.signature_external_id ??
       null;
 
     if (!pedidoId) {
       return json({ ok: false, error: "Pedido Assertiva não encontrado para este contrato" }, 400);
     }
 
-    // Credenciais Assertiva (compartilhadas entre todas as empresas)
-    const clientId = Deno.env.get("ASSERTIVA_CLIENT_ID");
-    const clientSecret = Deno.env.get("ASSERTIVA_CLIENT_SECRET");
+    // Descobre slug da empresa para usar credenciais específicas
+    let slug = "";
+    if (contrato.empresa_id) {
+      const { data: empresa } = await admin
+        .from("empresas").select("slug").eq("id", contrato.empresa_id).maybeSingle();
+      slug = (empresa?.slug ?? "").toUpperCase();
+    }
+    const suffix = slug ? `_${slug}` : "";
+
+    // Credenciais Assertiva (por empresa, com fallback global)
+    const clientId = Deno.env.get(`ASSERTIVA_CLIENT_ID${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_ID");
+    const clientSecret = Deno.env.get(`ASSERTIVA_CLIENT_SECRET${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_SECRET");
     if (!clientId || !clientSecret) {
-      return json({ ok: false, error: "Credenciais Assertiva não configuradas" }, 500);
+      return json({ ok: false, error: `Credenciais Assertiva não configuradas (ASSERTIVA_CLIENT_ID${suffix})` }, 500);
     }
 
     // OAuth2
