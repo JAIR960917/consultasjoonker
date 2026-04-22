@@ -295,8 +295,9 @@ export default function Empresas() {
                   <li><code className="text-foreground">CORA_CLIENT_ID_{form.slug || "SLUG"}</code></li>
                   <li><code className="text-foreground">CORA_CERTIFICATE_{form.slug || "SLUG"}</code></li>
                   <li><code className="text-foreground">CORA_PRIVATE_KEY_{form.slug || "SLUG"}</code></li>
-                  <li><code className="text-foreground">ASSERTIVA_AUTH_TOKEN_{form.slug || "SLUG"}</code></li>
-                  <li><code className="text-foreground">ASSERTIVA_WEBHOOK_SECRET_{form.slug || "SLUG"}</code></li>
+                  <li><code className="text-foreground">ASSERTIVA_CLIENT_ID_{form.slug || "SLUG"}</code></li>
+                  <li><code className="text-foreground">ASSERTIVA_CLIENT_SECRET_{form.slug || "SLUG"}</code></li>
+                  <li><code className="text-foreground">ASSERTIVA_WEBHOOK_SECRET_{form.slug || "SLUG"}</code> (opcional)</li>
                 </ul>
                 <p className="text-muted-foreground pt-1">
                   Use o botão <KeyRound className="inline h-3 w-3" /> na lista para copiar os nomes e a URL do webhook.
@@ -350,7 +351,8 @@ export default function Empresas() {
                 <p className="mb-1.5 font-medium">Assertiva (assinatura)</p>
                 <div className="space-y-1.5">
                   {[
-                    `ASSERTIVA_AUTH_TOKEN_${credEmpresa.slug}`,
+                    `ASSERTIVA_CLIENT_ID_${credEmpresa.slug}`,
+                    `ASSERTIVA_CLIENT_SECRET_${credEmpresa.slug}`,
                     `ASSERTIVA_WEBHOOK_SECRET_${credEmpresa.slug}`,
                   ].map((s) => (
                     <SecretRow key={s} value={s} copiedKey={copiedKey} onCopy={copyText} />
