@@ -64,29 +64,9 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Pedido Assertiva não encontrado para este contrato" }, 400);
     }
 
-    // Resolve empresa para pegar credenciais
-    let empresaId: string | null = contrato.empresa_id ?? null;
-    if (!empresaId && contrato.venda_id) {
-      const { data: venda } = await admin
-        .from("vendas").select("empresa_id").eq("id", contrato.venda_id).maybeSingle();
-      empresaId = venda?.empresa_id ?? null;
-    }
-    if (!empresaId) {
-      const { data: profile } = await admin
-        .from("profiles").select("empresa_id").eq("user_id", contrato.user_id).maybeSingle();
-      empresaId = profile?.empresa_id ?? null;
-    }
-
-    let empresaSlug: string | null = null;
-    if (empresaId) {
-      const { data: emp } = await admin
-        .from("empresas").select("slug").eq("id", empresaId).maybeSingle();
-      empresaSlug = emp?.slug ?? null;
-    }
-    const suffix = empresaSlug ? `_${empresaSlug}` : "";
-
-    const clientId = Deno.env.get(`ASSERTIVA_CLIENT_ID${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_ID");
-    const clientSecret = Deno.env.get(`ASSERTIVA_CLIENT_SECRET${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_SECRET");
+    // Credenciais Assertiva (compartilhadas entre todas as empresas)
+    const clientId = Deno.env.get("ASSERTIVA_CLIENT_ID");
+    const clientSecret = Deno.env.get("ASSERTIVA_CLIENT_SECRET");
     if (!clientId || !clientSecret) {
       return json({ ok: false, error: "Credenciais Assertiva não configuradas" }, 500);
     }
