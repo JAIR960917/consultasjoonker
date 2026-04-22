@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, PlayCircle, KeyRound, CheckCircle2, XCircle, Copy, ExternalLink } from "lucide-react";
@@ -206,6 +206,17 @@ export function AssertivaTab() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function SecretRow({ name, onCopy }: { name: string; onCopy: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded border bg-card px-3 py-2">
+      <code className="text-xs sm:text-sm break-all">{name}</code>
+      <Button variant="ghost" size="sm" onClick={onCopy}>
+        <Copy className="h-4 w-4" />
+      </Button>
     </div>
   );
 }
