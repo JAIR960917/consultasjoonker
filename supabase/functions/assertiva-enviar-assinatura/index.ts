@@ -63,13 +63,19 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Contrato sem telefone para envio via WhatsApp" }, 400);
     }
 
-    // Resolve empresa: primeiro pelo contrato, depois pela venda associada
+    // Resolve empresa: contrato -> venda -> profile do usuário do contrato
     let empresaId: string | null = contrato.empresa_id ?? null;
     if (!empresaId && contrato.venda_id) {
       const { data: venda } = await admin
         .from("vendas").select("empresa_id").eq("id", contrato.venda_id).maybeSingle();
       empresaId = venda?.empresa_id ?? null;
     }
+    if (!empresaId) {
+      const { data: profile } = await admin
+        .from("profiles").select("empresa_id").eq("user_id", contrato.user_id).maybeSingle();
+      empresaId = profile?.empresa_id ?? null;
+    }
+    console.log("assertiva-enviar-assinatura empresa resolvida:", { contrato_id: contrato.id, empresaId });
 
     let empresaSlug: string | null = null;
     if (empresaId) {
