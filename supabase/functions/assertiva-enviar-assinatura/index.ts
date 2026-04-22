@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       });
 
     // ---------- 2) Fluxo ativo ----------
-    const fluxosResp = await authedFetch(`/v1/jornadas/fluxos/ativos`);
+    const fluxosResp = await authedFetch(`/v1/jornadas/fluxos/ativos?index=1&size=50`);
     const fluxosText = await fluxosResp.text();
     const fluxosJson = safeJson(fluxosText);
     if (!fluxosResp.ok) {
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
     }
 
     // ---------- 3) Perfil de assinatura ----------
-    const perfisResp = await authedFetch(`/v1/jornadas/perfis-assinatura`);
+    const perfisResp = await authedFetch(`/v1/jornadas/perfis-assinatura?index=1&size=50`);
     const perfisText = await perfisResp.text();
     const perfisJson = safeJson(perfisText);
     if (!perfisResp.ok) {
