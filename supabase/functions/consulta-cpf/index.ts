@@ -84,6 +84,7 @@ interface SerasaResult {
   totalPendencias: number;
   somaPendencias: number;
   raw: unknown;
+  dataNascimento: string | null;
 }
 
 // ===== Chamada ao Relatório Básico PF =====
@@ -129,6 +130,15 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
     pickPath(json, ["data", "name"]) ??
     "Cliente";
 
+  // Data de nascimento — tenta vários caminhos
+  const dataNascRaw =
+    pickPath(json, ["registrationData", "birthDate"]) ??
+    pickPath(json, ["registration", "birthDate"]) ??
+    pickPath(json, ["consumer", "birthDate"]) ??
+    pickPath(json, ["personRegistrationData", "birthDate"]) ??
+    pickPath(json, ["data", "birthDate"]) ??
+    null;
+
   // Score — Básico PF normalmente devolve em scoreCH/scoreModels com modelo HLRD
   const scoreRaw =
     pickPath(json, ["scoreCH", "score"]) ??
@@ -154,6 +164,19 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
   const pendencias = extrairPendencias(json);
   const somaPendencias = pendencias.reduce((acc, p) => acc + (p.valor || 0), 0);
 
+  // Normaliza data de nascimento para formato YYYY-MM-DD
+  let dataNascimento: string | null = null;
+  if (dataNascRaw && typeof dataNascRaw === "string") {
+    const s = dataNascRaw.trim();
+    // Aceita formatos: YYYY-MM-DD, DD/MM/YYYY, ISO
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      dataNascimento = s.substring(0, 10);
+    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+      const [d, m, y] = s.split("/");
+      dataNascimento = `${y}-${m}-${d}`;
+    }
+  }
+
   return {
     nome: String(nome),
     score,
@@ -161,6 +184,7 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
     totalPendencias: pendencias.length,
     somaPendencias,
     raw: json,
+    dataNascimento,
   };
 }
 
@@ -293,6 +317,8 @@ Deno.serve(async (req) => {
     const simulacao = body?.simulacao === true;
 
     let serasa: SerasaResult;
+    let fromCache = false;
+
     if (simulacao) {
       const nomeSim = typeof body?.nome === "string" && body.nome.trim().length > 0
         ? body.nome.trim()
@@ -305,9 +331,49 @@ Deno.serve(async (req) => {
         totalPendencias: 0,
         somaPendencias: 0,
         raw: { simulacao: true, dataNascimento: body?.dataNascimento ?? null },
+        dataNascimento: body?.dataNascimento ?? null,
       } as SerasaResult;
     } else {
-      serasa = await consultarSerasa(cpf);
+      // 1) Tenta buscar do cache (válido por 3 meses)
+      const { data: cached } = await supabase
+        .from("consultas_cache")
+        .select("*")
+        .eq("cpf", cpf)
+        .gt("expira_em", new Date().toISOString())
+        .maybeSingle();
+
+      if (cached) {
+        fromCache = true;
+        serasa = {
+          nome: cached.nome ?? "Cliente",
+          score: cached.score ?? 0,
+          pendencias: (cached.pendencias as Pendencia[]) ?? [],
+          totalPendencias: cached.total_pendencias ?? 0,
+          somaPendencias: Number(cached.soma_pendencias ?? 0),
+          raw: cached.raw,
+          dataNascimento: cached.data_nascimento,
+        };
+      } else {
+        // 2) Cache miss → consulta Serasa
+        serasa = await consultarSerasa(cpf);
+
+        // 3) Salva/atualiza cache (upsert por CPF)
+        const { error: cacheErr } = await supabase
+          .from("consultas_cache")
+          .upsert({
+            cpf,
+            nome: serasa.nome,
+            data_nascimento: serasa.dataNascimento,
+            score: serasa.score,
+            raw: serasa.raw as never,
+            pendencias: serasa.pendencias as never,
+            total_pendencias: serasa.totalPendencias,
+            soma_pendencias: serasa.somaPendencias,
+            consultado_em: new Date().toISOString(),
+            expira_em: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+          }, { onConflict: "cpf" });
+        if (cacheErr) console.error("Erro ao salvar cache:", cacheErr);
+      }
     }
 
     const { error: insertErr } = await supabase.from("consultas").insert({
@@ -315,7 +381,7 @@ Deno.serve(async (req) => {
       cpf,
       nome: serasa.nome,
       score: serasa.score,
-      status: simulacao ? "simulacao" : "sucesso",
+      status: simulacao ? "simulacao" : (fromCache ? "cache" : "sucesso"),
       raw: serasa.raw as never,
     });
     if (insertErr) console.error("Erro ao gravar consulta:", insertErr);
@@ -324,10 +390,12 @@ Deno.serve(async (req) => {
       cpf,
       nome: serasa.nome,
       score: serasa.score,
+      dataNascimento: serasa.dataNascimento,
       pendencias: serasa.pendencias,
       totalPendencias: serasa.totalPendencias,
       somaPendencias: serasa.somaPendencias,
-      provider: simulacao ? "simulacao" : "serasa",
+      provider: simulacao ? "simulacao" : (fromCache ? "cache" : "serasa"),
+      fromCache,
       simulacao,
     });
   } catch (e) {

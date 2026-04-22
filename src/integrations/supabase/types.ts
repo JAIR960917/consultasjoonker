@@ -164,6 +164,54 @@ export type Database = {
         }
         Relationships: []
       }
+      consultas_cache: {
+        Row: {
+          consultado_em: string
+          cpf: string
+          created_at: string
+          data_nascimento: string | null
+          expira_em: string
+          id: string
+          nome: string | null
+          pendencias: Json | null
+          raw: Json | null
+          score: number | null
+          soma_pendencias: number | null
+          total_pendencias: number | null
+          updated_at: string
+        }
+        Insert: {
+          consultado_em?: string
+          cpf: string
+          created_at?: string
+          data_nascimento?: string | null
+          expira_em?: string
+          id?: string
+          nome?: string | null
+          pendencias?: Json | null
+          raw?: Json | null
+          score?: number | null
+          soma_pendencias?: number | null
+          total_pendencias?: number | null
+          updated_at?: string
+        }
+        Update: {
+          consultado_em?: string
+          cpf?: string
+          created_at?: string
+          data_nascimento?: string | null
+          expira_em?: string
+          id?: string
+          nome?: string | null
+          pendencias?: Json | null
+          raw?: Json | null
+          score?: number | null
+          soma_pendencias?: number | null
+          total_pendencias?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contract_template: {
         Row: {
           company_address: string

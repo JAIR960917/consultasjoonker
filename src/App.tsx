@@ -17,6 +17,7 @@ import Empresas from "./pages/Empresas";
 import Contrato from "./pages/Contrato";
 import Contratos from "./pages/Contratos";
 import RelatoriosEmpresa from "./pages/RelatoriosEmpresa";
+import ConsultasSalvas from "./pages/ConsultasSalvas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/contratos" element={<ProtectedRoute><Contratos /></ProtectedRoute>} />
             <Route path="/contrato/:id" element={<ProtectedRoute><Contrato /></ProtectedRoute>} />
             <Route path="/relatorios-empresa" element={<ProtectedRoute adminOnly><RelatoriosEmpresa /></ProtectedRoute>} />
+            <Route path="/consultas-salvas" element={<ProtectedRoute><ConsultasSalvas /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
