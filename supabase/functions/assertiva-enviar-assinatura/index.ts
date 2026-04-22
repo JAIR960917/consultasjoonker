@@ -70,6 +70,22 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Contrato sem telefone para envio via SMS" }, 400);
     }
 
+    // ---------- Carrega venda + template para gerar PDF idêntico ao da tela ----------
+    let vendaInfo: { valor_total: number; primeiro_vencimento: string | null } | null = null;
+    if (contrato.venda_id) {
+      const { data: v } = await admin
+        .from("vendas")
+        .select("valor_total, primeiro_vencimento")
+        .eq("id", contrato.venda_id)
+        .maybeSingle();
+      if (v) vendaInfo = { valor_total: Number(v.valor_total), primeiro_vencimento: v.primeiro_vencimento };
+    }
+    const { data: tpl } = await admin
+      .from("contract_template")
+      .select("title")
+      .limit(1).maybeSingle();
+    const tplTitle = tpl?.title || "Nota Promissória";
+
     // ---------- Resolve empresa ----------
     let empresaId: string | null = contrato.empresa_id ?? null;
     if (!empresaId && contrato.venda_id) {
@@ -213,8 +229,20 @@ Deno.serve(async (req) => {
     const celCampoId = findCampo("celular", "telefone", "phone");
     const emailCampoId = findCampo("email", "e-mail");
 
-    // ---------- 4) Gera PDF do contrato ----------
-    const pdfBytes = buildPdf(contrato.content, contrato.nome, contrato.cpf);
+    // ---------- 4) Gera PDF do contrato (mesmo layout da Nota Promissória da tela) ----------
+    const vencimentoFmt = vendaInfo?.primeiro_vencimento
+      ? formatDateBR(vendaInfo.primeiro_vencimento)
+      : null;
+    const valorFmt = vendaInfo?.valor_total != null ? formatBRL(vendaInfo.valor_total) : null;
+    const pdfBytes = buildPdf({
+      title: tplTitle,
+      content: contrato.content,
+      nome: contrato.nome,
+      cpf: contrato.cpf,
+      vencimento: vencimentoFmt,
+      valorTotal: valorFmt,
+      numero: "Nº 1 DE 1",
+    });
     const fileName = `contrato-${contrato.id}.pdf`;
 
     // ---------- 5) Upload do PDF ----------
@@ -343,8 +371,30 @@ function json(data: unknown, _status = 200) {
   });
 }
 
-// Gera um PDF simples (texto) com o conteúdo do contrato.
-function buildPdf(content: string, nome: string, cpf: string): Uint8Array {
+function formatBRL(v: number): string {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+function formatDateBR(iso: string): string {
+  // iso: "YYYY-MM-DD"
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
+
+interface PdfInput {
+  title: string;
+  content: string;
+  nome: string;
+  cpf: string;
+  vencimento: string | null;
+  valorTotal: string | null;
+  numero: string | null;
+}
+
+// Gera o PDF no MESMO layout da tela (Nota Promissória):
+// título centralizado + "Nº X DE Y" ao lado, vencimento e valor no canto
+// superior direito, corpo do contrato e linha única de assinatura do emitente.
+function buildPdf(d: PdfInput): Uint8Array {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -352,31 +402,121 @@ function buildPdf(content: string, nome: string, cpf: string): Uint8Array {
   const usableWidth = pageWidth - margin * 2;
 
   doc.setTextColor(0, 0, 0);
+
+  // ---- Cabeçalho ----
+  const titleText = (d.title || "Nota Promissória").toUpperCase();
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("CONTRATO", pageWidth / 2, margin + 10, { align: "center" });
+  doc.setFontSize(18);
+  const titleWidth = doc.getTextWidth(titleText);
+
+  const numero = d.numero || "Nº 1 DE 1";
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const numWidth = doc.getTextWidth(numero);
+
+  const gap = 8;
+  const groupWidth = titleWidth + gap + numWidth;
+  const groupStart = (pageWidth - groupWidth) / 2;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text(titleText, groupStart, margin + 6);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`${nome} • CPF ${cpf}`, pageWidth / 2, margin + 28, { align: "center" });
+  doc.setFontSize(9);
+  doc.text(numero, groupStart + titleWidth + gap, margin + 2);
 
+  // Vencimento / valor no canto superior direito
+  if (d.vencimento || d.valorTotal) {
+    doc.setFontSize(9);
+    const rightX = pageWidth - margin;
+    let ry = margin - 4;
+    if (d.vencimento) {
+      doc.setFont("helvetica", "normal");
+      doc.text(`Vencimento: `, rightX - doc.getTextWidth(d.vencimento) - 4, ry, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.text(d.vencimento, rightX, ry, { align: "right" });
+      ry += 12;
+    }
+    if (d.valorTotal) {
+      doc.setFont("helvetica", "normal");
+      doc.text(`Valor: `, rightX - doc.getTextWidth(d.valorTotal) - 4, ry, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.text(d.valorTotal, rightX, ry, { align: "right" });
+    }
+  }
+
+  // ---- Corpo do contrato ----
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
-  let y = margin + 60;
-  const lineHeight = 14;
-  const paragraphs = content.split("\n");
-  for (const p of paragraphs) {
-    const text = p.trim();
-    if (!text) { y += 8; continue; }
-    const lines = doc.splitTextToSize(text, usableWidth);
+
+  const rawLines = d.content.split("\n");
+  const lineHeight = 16;
+  const rightColumnWidth = 220;
+  const gapBetweenColumns = 16;
+  const leftColumnWidth = usableWidth - rightColumnWidth - gapBetweenColumns;
+  let y = margin + 50;
+
+  for (const rawLine of rawLines) {
+    const paragraph = rawLine.trim();
+    if (!paragraph) { y += 8; continue; }
+
+    const cityDateMatch = rawLine.match(/^(.*?)([A-Za-zÀ-ÿ\s.-]+-[A-Z]{2}\s*,\s*\d{1,2}\s+de\s+[A-Za-zÀ-ÿ]+\s+de\s+\d{4})\s*$/);
+    const spacedColumnsMatch = rawLine.match(/^(.*?)\s{3,}(.+)$/);
+    const columnMatch = cityDateMatch
+      ? [rawLine, cityDateMatch[1], cityDateMatch[2]]
+      : spacedColumnsMatch;
+
+    if (columnMatch) {
+      const leftText = String(columnMatch[1]).trim();
+      const rightText = String(columnMatch[2]).trim();
+      const leftLines = leftText ? doc.splitTextToSize(leftText, leftColumnWidth) : [""];
+      const rightLines = doc.splitTextToSize(rightText, rightColumnWidth);
+      const totalLines = Math.max(leftLines.length, rightLines.length);
+
+      for (let i = 0; i < totalLines; i++) {
+        if (y > pageHeight - margin - 120) { doc.addPage(); y = margin; }
+        const leftLine = leftLines[i];
+        const rightLine = rightLines[i];
+        if (leftLine) doc.text(leftLine, margin, y);
+        if (rightLine) doc.text(rightLine, pageWidth - margin, y, { align: "right" });
+        y += lineHeight;
+      }
+      continue;
+    }
+
+    const lines = doc.splitTextToSize(paragraph, usableWidth);
     for (const line of lines) {
-      if (y > pageHeight - margin) { doc.addPage(); y = margin; }
+      if (y > pageHeight - margin - 120) { doc.addPage(); y = margin; }
       doc.text(line, margin, y);
       y += lineHeight;
     }
-    y += 4;
+    y += 6;
   }
 
-  // jsPDF retorna ArrayBuffer
+  // ---- Assinatura única (emitente) ----
+  if (y > pageHeight - 140) { doc.addPage(); y = margin; }
+  y += 50;
+
+  const sigWidth = 280;
+  const sigX = (pageWidth - sigWidth) / 2;
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.6);
+  doc.line(sigX, y, sigX + sigWidth, y);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Assinatura do emitente", pageWidth / 2, y + 14, { align: "center" });
+
+  // Rodapé com numeração de páginas
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(140, 140, 140);
+    doc.text(`Página ${i} de ${total}`, pageWidth - margin, pageHeight - 20, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+  }
+
   const ab = doc.output("arraybuffer") as ArrayBuffer;
   return new Uint8Array(ab);
 }
