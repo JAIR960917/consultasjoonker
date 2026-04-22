@@ -146,26 +146,29 @@ export default function Contrato() {
   const handleStartSignature = async () => {
     if (!c) return;
     setSigning(true);
-    // Mock: gera uma URL placeholder. Quando a Assertiva for integrada, o backend
-    // substituirá por: signature_url retornada por GET /v1/signatarios/{id}/obter-link
-    const mockUrl =
-      c.signature_url ||
-      `https://assinaturas.assertivasolucoes.com.br/mock/${c.id}`;
 
-    const { error } = await supabase
-      .from("contracts")
-      .update({
-        status: "aguardando_assinatura",
-        signature_provider: "assertiva_mock",
-        signature_url: mockUrl,
-      })
-      .eq("id", c.id);
+    const { data, error } = await supabase.functions.invoke("assertiva-enviar-assinatura", {
+      body: { contrato_id: c.id },
+    });
+
     setSigning(false);
-    if (error) {
-      toast.error("Erro ao iniciar assinatura", { description: error.message });
+
+    if (error || !data?.ok) {
+      const msg = data?.error || error?.message || "Erro desconhecido";
+      toast.error("Falha ao enviar para assinatura", { description: msg });
       return;
     }
-    setC({ ...c, status: "aguardando_assinatura", signature_url: mockUrl });
+
+    const newUrl = data.signature_url || c.signature_url || "";
+    setC({
+      ...c,
+      status: "aguardando_assinatura",
+      signature_url: newUrl,
+      signature_provider: "assertiva",
+    });
+    toast.success("Contrato enviado", {
+      description: "O cliente receberá o link de assinatura via WhatsApp.",
+    });
     setSignDialog(true);
   };
 

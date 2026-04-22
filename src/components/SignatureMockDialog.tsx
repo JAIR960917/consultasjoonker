@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, CheckCircle2, Loader2, Smartphone, ExternalLink } from "lucide-react";
+import { Copy, CheckCircle2, Loader2, Smartphone, ExternalLink, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   signatureUrl: string;
   status: "aguardando_assinatura" | "assinado";
-  onSimulateSign?: () => void; // remove quando integrar Assertiva
+  onSimulateSign?: () => void;
 }
 
 export function SignatureMockDialog({ open, onOpenChange, signatureUrl, status, onSimulateSign }: Props) {
@@ -28,6 +28,7 @@ export function SignatureMockDialog({ open, onOpenChange, signatureUrl, status, 
   };
 
   const assinado = status === "assinado";
+  const hasUrl = !!signatureUrl;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -43,34 +44,39 @@ export function SignatureMockDialog({ open, onOpenChange, signatureUrl, status, 
           <DialogDescription>
             {assinado
               ? "O cliente concluiu a assinatura. O contrato já tem validade jurídica."
-              : "Peça para o cliente escanear o QR Code com o celular para assinar com selfie + documento."}
+              : "O link de assinatura foi enviado para o WhatsApp do cliente. Você também pode compartilhar por aqui."}
           </DialogDescription>
         </DialogHeader>
 
         {!assinado ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-center rounded-lg border bg-white p-6">
-              <QRCodeSVG value={signatureUrl} size={220} level="M" includeMargin />
+            <div className="rounded-md border border-success/40 bg-success/5 p-3 text-sm flex items-start gap-2">
+              <MessageCircle className="h-4 w-4 mt-0.5 text-success shrink-0" />
+              <div>
+                <p className="font-medium text-foreground">Enviado via WhatsApp</p>
+                <p className="text-xs text-muted-foreground">
+                  Quando o cliente assinar, o status atualiza automaticamente nesta página.
+                </p>
+              </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={copy}>
-                {copied ? <CheckCircle2 className="mr-2 h-4 w-4 text-success" /> : <Copy className="mr-2 h-4 w-4" />}
-                {copied ? "Copiado" : "Copiar link"}
-              </Button>
-              <Button variant="outline" className="flex-1" onClick={() => window.open(signatureUrl, "_blank")}>
-                <ExternalLink className="mr-2 h-4 w-4" /> Abrir
-              </Button>
-            </div>
+            {hasUrl && (
+              <>
+                <div className="flex items-center justify-center rounded-lg border bg-white p-6">
+                  <QRCodeSVG value={signatureUrl} size={220} level="M" includeMargin />
+                </div>
 
-            <div className="rounded-md border border-dashed border-warning/50 bg-warning/5 p-3 text-xs text-muted-foreground">
-              <p className="font-medium text-warning-foreground mb-1">⚠ Modo simulação</p>
-              <p>
-                A integração com a Assertiva Assinaturas será conectada quando as credenciais
-                estiverem disponíveis. Por enquanto, use o botão abaixo para simular a conclusão da assinatura
-                e validar o fluxo completo.
-              </p>
-            </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={copy}>
+                    {copied ? <CheckCircle2 className="mr-2 h-4 w-4 text-success" /> : <Copy className="mr-2 h-4 w-4" />}
+                    {copied ? "Copiado" : "Copiar link"}
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => window.open(signatureUrl, "_blank")}>
+                    <ExternalLink className="mr-2 h-4 w-4" /> Abrir
+                  </Button>
+                </div>
+              </>
+            )}
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -78,8 +84,8 @@ export function SignatureMockDialog({ open, onOpenChange, signatureUrl, status, 
             </div>
 
             {onSimulateSign && (
-              <Button variant="secondary" className="w-full" onClick={onSimulateSign}>
-                Simular assinatura concluída
+              <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={onSimulateSign}>
+                Marcar como assinado manualmente (admin)
               </Button>
             )}
           </div>
