@@ -12,6 +12,7 @@ import type { ScoreTier } from "@/lib/finance";
 import { BrandingTab } from "@/components/BrandingTab";
 import { ContractTemplateTab } from "@/components/ContractTemplateTab";
 import { CoraTab } from "@/components/CoraTab";
+import { AssertivaTab } from "@/components/AssertivaTab";
 
 interface Settings {
   id: string;
@@ -126,6 +127,7 @@ export default function Configuracoes() {
           <TabsTrigger value="marca">Marca</TabsTrigger>
           <TabsTrigger value="contrato">Modelo de Contrato</TabsTrigger>
           <TabsTrigger value="cora">Cora (Boletos)</TabsTrigger>
+          <TabsTrigger value="assertiva">Assertiva</TabsTrigger>
         </TabsList>
 
         <TabsContent value="regras" className="mt-6">
@@ -249,6 +251,10 @@ export default function Configuracoes() {
 
         <TabsContent value="cora" className="mt-6">
           <CoraTab />
+        </TabsContent>
+
+        <TabsContent value="assertiva" className="mt-6">
+          <AssertivaTab />
         </TabsContent>
       </Tabs>
     </AppLayout>
