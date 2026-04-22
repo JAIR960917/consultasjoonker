@@ -191,18 +191,10 @@ export function AssertivaTab() {
               <li>Aguarde alguns segundos para a propagação e clique em <strong>Testar geração de token</strong> acima.</li>
             </ol>
 
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button variant="outline" size="sm" asChild>
-                <a
-                  href="https://supabase.com/dashboard/project/vtiimbbrxsfqgmscqdnl/settings/functions"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Abrir painel de secrets
-                </a>
-              </Button>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Para abrir o painel de secrets: no editor do Lovable, clique em <strong>Cloud</strong> (barra lateral) →
+              aba <strong>Secrets</strong>. Lá você encontra os dois nomes acima e pode atualizar os valores.
+            </p>
           </div>
         </CardContent>
       </Card>
