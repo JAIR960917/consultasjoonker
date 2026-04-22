@@ -183,6 +183,9 @@ export default function Empresas() {
                         : <Badge variant="secondary">Inativa</Badge>}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
+                      <Button size="sm" variant="outline" onClick={() => setCredEmpresa(r)} title="Ver credenciais">
+                        <KeyRound className="h-3.5 w-3.5" />
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
