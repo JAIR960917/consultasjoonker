@@ -237,9 +237,18 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Resposta do link de upload inesperada", detail: uploadLinkJson ?? uploadLinkText.slice(0, 500) }, 502);
     }
 
+    // S3 pre-signed URL (SigV2) inclui x-amz-security-token na query string,
+    // mas o StringToSign do S3 também o espera como header HTTP — então enviamos ambos.
+    const putHeaders: Record<string, string> = { "Content-Type": "application/pdf" };
+    try {
+      const u = new URL(uploadUrl);
+      const tok = u.searchParams.get("x-amz-security-token");
+      if (tok) putHeaders["x-amz-security-token"] = tok;
+    } catch (_) { /* noop */ }
+
     const putResp = await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "Content-Type": "application/pdf" },
+      headers: putHeaders,
       body: pdfBytes,
     });
     if (!putResp.ok) {
