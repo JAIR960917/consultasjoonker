@@ -176,8 +176,8 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Não foi possível identificar o ID do fluxo retornado", detail: fluxo }, 502);
     }
 
-    // ---------- 3) Perfil de assinatura ----------
-    const perfisResp = await authedFetch(`/v1/jornadas/perfis-assinatura?index=1&size=50`);
+    // ---------- 3) Perfil de assinatura (vinculado ao fluxo) ----------
+    const perfisResp = await authedFetch(`/v1/jornadas/perfis-assinatura?fluxoId=${fluxoId}&index=1&size=50`);
     const perfisText = await perfisResp.text();
     const perfisJson = safeJson(perfisText);
     if (!perfisResp.ok) {
