@@ -54,8 +54,10 @@ export function AssertivaTab() {
   };
 
   const suffix = (slug || "").toUpperCase();
+  const suffixLower = (slug || "").toLowerCase();
   const idSecretName = `ASSERTIVA_CLIENT_ID_${suffix || "<EMPRESA>"}`;
   const secretSecretName = `ASSERTIVA_CLIENT_SECRET_${suffix || "<EMPRESA>"}`;
+  const authTokenName = `ASSERTIVA_AUTH_TOKEN_${suffixLower || "<empresa>"}`;
 
   const copy = async (text: string, label: string) => {
     try {
