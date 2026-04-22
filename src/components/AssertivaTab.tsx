@@ -18,6 +18,9 @@ export function AssertivaTab() {
   const [slug, setSlug] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
+  const [whLoading, setWhLoading] = useState(false);
+  const [whResult, setWhResult] = useState<any | null>(null);
+  const [whList, setWhList] = useState<any[] | null>(null);
 
   useEffect(() => {
     supabase
@@ -50,6 +53,41 @@ export function AssertivaTab() {
       setResult({ error: err?.message ?? String(err) });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const callWebhook = async (action: "register" | "list" | "delete", id?: string) => {
+    setWhLoading(true);
+    setWhResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("assertiva-registrar-webhook", {
+        body: { empresa_slug: slug || undefined, action, id },
+      });
+      if (error) throw error;
+      setWhResult(data);
+      if (action === "list") {
+        const arr = data?.data?.configuracoes ?? [];
+        setWhList(Array.isArray(arr) ? arr : []);
+      } else if (action === "register") {
+        if (data?.ok) {
+          toast.success(data?.mode === "updated" ? "Webhook atualizado na Assertiva" : "Webhook cadastrado na Assertiva");
+          // Atualiza lista
+          await callWebhook("list");
+        } else {
+          toast.error("Falha ao registrar webhook", { description: data?.error });
+        }
+      } else if (action === "delete") {
+        if (data?.ok) {
+          toast.success("Webhook removido");
+          await callWebhook("list");
+        } else {
+          toast.error("Falha ao remover", { description: data?.error });
+        }
+      }
+    } catch (err: any) {
+      toast.error("Erro na chamada", { description: err?.message ?? String(err) });
+    } finally {
+      setWhLoading(false);
     }
   };
 
