@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Building2, Plus, Pencil, Trash2, KeyRound } from "lucide-react";
+import { Loader2, Building2, Plus, Pencil, Trash2, KeyRound, Copy, Check } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -20,6 +20,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 interface Empresa {
   id: string;
@@ -58,6 +60,15 @@ export default function Empresas() {
   const [editing, setEditing] = useState<Empresa | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [credEmpresa, setCredEmpresa] = useState<Empresa | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyText = async (text: string, key: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    toast.success("Copiado");
+    setTimeout(() => setCopiedKey(null), 1500);
+  };
 
   const load = async () => {
     setLoading(true);
