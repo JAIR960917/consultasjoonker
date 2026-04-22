@@ -70,6 +70,22 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Contrato sem telefone para envio via SMS" }, 400);
     }
 
+    // ---------- Carrega venda + template para gerar PDF idêntico ao da tela ----------
+    let vendaInfo: { valor_total: number; primeiro_vencimento: string | null } | null = null;
+    if (contrato.venda_id) {
+      const { data: v } = await admin
+        .from("vendas")
+        .select("valor_total, primeiro_vencimento")
+        .eq("id", contrato.venda_id)
+        .maybeSingle();
+      if (v) vendaInfo = { valor_total: Number(v.valor_total), primeiro_vencimento: v.primeiro_vencimento };
+    }
+    const { data: tpl } = await admin
+      .from("contract_template")
+      .select("title")
+      .limit(1).maybeSingle();
+    const tplTitle = tpl?.title || "Nota Promissória";
+
     // ---------- Resolve empresa ----------
     let empresaId: string | null = contrato.empresa_id ?? null;
     if (!empresaId && contrato.venda_id) {
