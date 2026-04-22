@@ -309,6 +309,7 @@ export default function Contrato() {
             <Button onClick={() => setSignDialog(true)} className="bg-warning text-warning-foreground hover:bg-warning/90" size="lg">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Aguardando assinatura
             </Button>
+          ) : (
             <Button
               onClick={handleStartSignature}
               disabled={signing}
