@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
           fluxoId,
           perfilAssinaturaId: perfil?.id ?? perfil?.perfilId,
           campos: camposParte,
-          anexos: [{ id: arquivoId, nome: fileName }],
+          anexos: [{ chave: arquivoId, extensao: "pdf", nome: fileName }],
         },
       ],
     };
