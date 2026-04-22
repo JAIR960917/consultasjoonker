@@ -395,6 +395,34 @@ function safeJson(text: string): any {
   try { return JSON.parse(text); } catch { return null; }
 }
 
+// Procura recursivamente por uma URL de assinatura em qualquer campo do objeto.
+function findLinkDeep(obj: any, depth = 0): string | null {
+  if (!obj || depth > 8) return null;
+  if (typeof obj === "string") {
+    if (/^https?:\/\//i.test(obj) && /(autentic|assinatur|jornad|assertiv|short)/i.test(obj)) return obj;
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    for (const it of obj) {
+      const r = findLinkDeep(it, depth + 1);
+      if (r) return r;
+    }
+    return null;
+  }
+  if (typeof obj === "object") {
+    const priority = ["linkAssinatura", "urlAssinatura", "shortUrl", "linkCurto", "link", "url"];
+    for (const k of priority) {
+      const v = (obj as any)[k];
+      if (typeof v === "string" && /^https?:\/\//i.test(v)) return v;
+    }
+    for (const k of Object.keys(obj)) {
+      const r = findLinkDeep((obj as any)[k], depth + 1);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
 function json(data: unknown, _status = 200) {
   return new Response(JSON.stringify(data), {
     status: 200,
