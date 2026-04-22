@@ -152,9 +152,11 @@ Deno.serve(async (req) => {
   }
 });
 
-function json(data: unknown, status = 200) {
+function json(data: unknown, _status = 200) {
+  // Sempre responder 200 para que o cliente consiga ler { ok, error }
+  // sem cair no erro genérico "non-2xx status code" do supabase-js.
   return new Response(JSON.stringify(data), {
-    status,
+    status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
