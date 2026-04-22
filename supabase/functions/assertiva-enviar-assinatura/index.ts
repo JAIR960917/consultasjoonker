@@ -197,6 +197,9 @@ Deno.serve(async (req) => {
         ?? []);
     const perfil = perfis.find((p: any) => (p?.campos?.length ?? p?.fields?.length ?? 0) > 0) ?? perfis[0];
     if (!perfil) return json({ ok: false, error: "Nenhum perfil de assinatura disponível", detail: perfisJson ?? perfisText.slice(0, 500) }, 502);
+    const perfilId = perfil?.id ?? perfil?.perfilId ?? perfil?.perfilAssinaturaId ?? null;
+    console.info("autentica: perfil escolhido", { perfilId, nome: perfil?.nome });
+    if (!perfilId) return json({ ok: false, error: "Perfil de assinatura sem ID válido", detail: perfil }, 502);
     const campos: any[] = perfil?.campos ?? perfil?.fields ?? [];
     const findCampo = (...names: string[]): string | null => {
       for (const c of campos) {
