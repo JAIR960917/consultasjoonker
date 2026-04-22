@@ -97,11 +97,14 @@ Deno.serve(async (req) => {
     }
     const bearer = tokenJson.access_token as string;
 
-    // Consulta o pedido — tenta endpoints conhecidos da Assertiva Autentica
+    // A Assertiva pode bloquear a consulta direta do pedido em alguns ambientes,
+    // retornando 403 para esses endpoints mesmo com OAuth válido.
+    // Então tentamos poucas variações e, se vier 403, devolvemos uma resposta segura
+    // para a UI sem estourar 502.
     const pedidoEndpoints = [
       `/v1/jornadas/pedidos/${pedidoId}`,
-      `/v1/jornadas/pedidos/consultar/${pedidoId}`,
-      `/v1/jornadas/pedidos?protocolo=${pedidoId}`,
+      `/v1/jornadas/pedidos?id=${pedidoId}`,
+      `/v1/jornadas/pedidos?pedidoId=${pedidoId}`,
     ];
 
     let pedidoData: any = null;
@@ -121,11 +124,28 @@ Deno.serve(async (req) => {
     }
 
     if (!pedidoData) {
+      const mergedSig = {
+        ...(sigData ?? {}),
+        sincronizado_em: new Date().toISOString(),
+        pedido_consulta_erro: { status: lastStatus, body: lastBody.slice(0, 500) },
+      };
+      await admin.from("contracts").update({ signature_data: mergedSig }).eq("id", contratoId);
+
+      if (lastStatus === 403) {
+        return json({
+          ok: true,
+          status: contrato.status,
+          atualizado: false,
+          pendente_webhook: true,
+          message: "A Assertiva bloqueou a consulta direta deste pedido; o contrato continuará sendo atualizado pelo webhook quando a assinatura for concluída.",
+        });
+      }
+
       return json({
         ok: false,
         error: `Falha ao consultar pedido na Assertiva (HTTP ${lastStatus})`,
         detail: lastBody.slice(0, 500),
-      }, 502);
+      }, 200);
     }
 
     // Extrai status — formatos comuns
