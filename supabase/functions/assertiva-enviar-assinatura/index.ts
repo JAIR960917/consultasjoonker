@@ -268,18 +268,17 @@ Deno.serve(async (req) => {
     const cpfDigits = contrato.cpf.replace(/\D/g, "");
 
     const camposParte: any[] = [];
-    if (cpfCampoId) camposParte.push({ campoId: cpfCampoId, valor: cpfDigits });
-    if (nomeCampoId) camposParte.push({ campoId: nomeCampoId, valor: contrato.nome });
-    if (celCampoId) camposParte.push({ campoId: celCampoId, valor: celular });
-    if (emailCampoId) camposParte.push({ campoId: emailCampoId, valor: "" });
+    if (cpfCampoId) camposParte.push({ id: cpfCampoId, valor: cpfDigits });
+    if (nomeCampoId) camposParte.push({ id: nomeCampoId, valor: contrato.nome });
+    if (celCampoId) camposParte.push({ id: celCampoId, valor: celular });
 
     const pedidoPayload = {
       partes: [
         {
+          perfilId: perfilId,
           fluxoId,
-          perfilAssinaturaId: perfilId,
           campos: camposParte,
-          anexos: [{ chave: arquivoId, extensao: "pdf", nome: fileName }],
+          anexos: [{ chave: arquivoId, nome: fileName.replace(/\.pdf$/i, ""), extensao: "pdf" }],
         },
       ],
     };
