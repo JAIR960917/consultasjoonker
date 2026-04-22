@@ -307,7 +307,11 @@ Deno.serve(async (req) => {
     }
 
     if (!putResp?.ok) {
-      return json({ ok: false, error: `Falha ao subir PDF (HTTP ${putResp?.status ?? 500}): ${putErrorText.slice(0, 200)}` }, 502);
+      return json({
+        ok: false,
+        error: "A Assertiva retornou um link temporário de upload inválido para o PDF; o upload falhou antes mesmo da criação do pedido.",
+        detail: putErrorText.slice(0, 400),
+      }, 502);
     }
 
     console.info("autentica: PUT upload OK", { status: putResp.status, attempt: successfulAttempt });
