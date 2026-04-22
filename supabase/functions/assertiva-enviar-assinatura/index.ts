@@ -176,8 +176,8 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Não foi possível identificar o ID do fluxo retornado", detail: fluxo }, 502);
     }
 
-    // ---------- 3) Perfil de assinatura ----------
-    const perfisResp = await authedFetch(`/v1/jornadas/perfis-assinatura?index=1&size=50`);
+    // ---------- 3) Perfil de assinatura (vinculado ao fluxo) ----------
+    const perfisResp = await authedFetch(`/v1/jornadas/perfis-assinatura?fluxoId=${fluxoId}&index=1&size=50`);
     const perfisText = await perfisResp.text();
     const perfisJson = safeJson(perfisText);
     if (!perfisResp.ok) {
@@ -197,6 +197,9 @@ Deno.serve(async (req) => {
         ?? []);
     const perfil = perfis.find((p: any) => (p?.campos?.length ?? p?.fields?.length ?? 0) > 0) ?? perfis[0];
     if (!perfil) return json({ ok: false, error: "Nenhum perfil de assinatura disponível", detail: perfisJson ?? perfisText.slice(0, 500) }, 502);
+    const perfilId = perfil?.id ?? perfil?.perfilId ?? perfil?.perfilAssinaturaId ?? null;
+    console.info("autentica: perfil escolhido", { perfilId, nome: perfil?.nome });
+    if (!perfilId) return json({ ok: false, error: "Perfil de assinatura sem ID válido", detail: perfil }, 502);
     const campos: any[] = perfil?.campos ?? perfil?.fields ?? [];
     const findCampo = (...names: string[]): string | null => {
       for (const c of campos) {
@@ -274,7 +277,7 @@ Deno.serve(async (req) => {
       partes: [
         {
           fluxoId,
-          perfilAssinaturaId: perfil?.id ?? perfil?.perfilId,
+          perfilAssinaturaId: perfilId,
           campos: camposParte,
           anexos: [{ chave: arquivoId, extensao: "pdf", nome: fileName }],
         },
