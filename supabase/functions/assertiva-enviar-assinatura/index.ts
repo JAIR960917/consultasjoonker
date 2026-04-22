@@ -11,7 +11,7 @@
 //
 // Body: { contrato_id: string }
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
@@ -29,7 +29,10 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ ok: false, error: "Unauthorized" }, 401);
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.error("auth: missing Bearer header");
+      return json({ ok: false, error: "Unauthorized: cabeçalho Authorization ausente" }, 401);
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -37,7 +40,10 @@ Deno.serve(async (req) => {
     });
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userErr } = await userClient.auth.getUser(token);
-    if (userErr || !userData?.user) return json({ ok: false, error: "Unauthorized" }, 401);
+    if (userErr || !userData?.user) {
+      console.error("auth: getUser failed", userErr?.message ?? "(no message)", JSON.stringify(userErr ?? {}));
+      return json({ ok: false, error: `Unauthorized: ${userErr?.message ?? "sessão inválida"}` }, 401);
+    }
     const userId = userData.user.id;
 
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
