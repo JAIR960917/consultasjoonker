@@ -306,15 +306,9 @@ export default function Contrato() {
               <CheckCircle2 className="mr-2 h-4 w-4" /> Assinado
             </Button>
           ) : enviado ? (
-            <>
-              <Button onClick={handleSyncStatus} disabled={syncing} variant="outline">
-                {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                Sincronizar status
-              </Button>
-              <Button onClick={() => setSignDialog(true)} className="bg-warning text-warning-foreground hover:bg-warning/90" size="lg">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Aguardando assinatura
-              </Button>
-            </>
+            <Button onClick={() => setSignDialog(true)} className="bg-warning text-warning-foreground hover:bg-warning/90" size="lg">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Aguardando assinatura
+            </Button>
           ) : (
             <Button
               onClick={handleStartSignature}
