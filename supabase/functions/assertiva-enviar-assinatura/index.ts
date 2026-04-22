@@ -229,8 +229,20 @@ Deno.serve(async (req) => {
     const celCampoId = findCampo("celular", "telefone", "phone");
     const emailCampoId = findCampo("email", "e-mail");
 
-    // ---------- 4) Gera PDF do contrato ----------
-    const pdfBytes = buildPdf(contrato.content, contrato.nome, contrato.cpf);
+    // ---------- 4) Gera PDF do contrato (mesmo layout da Nota Promissória da tela) ----------
+    const vencimentoFmt = vendaInfo?.primeiro_vencimento
+      ? formatDateBR(vendaInfo.primeiro_vencimento)
+      : null;
+    const valorFmt = vendaInfo?.valor_total != null ? formatBRL(vendaInfo.valor_total) : null;
+    const pdfBytes = buildPdf({
+      title: tplTitle,
+      content: contrato.content,
+      nome: contrato.nome,
+      cpf: contrato.cpf,
+      vencimento: vencimentoFmt,
+      valorTotal: valorFmt,
+      numero: "Nº 1 DE 1",
+    });
     const fileName = `contrato-${contrato.id}.pdf`;
 
     // ---------- 5) Upload do PDF ----------
