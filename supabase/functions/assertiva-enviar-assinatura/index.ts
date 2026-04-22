@@ -112,15 +112,13 @@ Deno.serve(async (req) => {
     console.log("autentica: empresa", { empresaId, empresaSlug });
 
     // ---------- 1) OAuth2 token ----------
-    const clientId =
-      Deno.env.get(`ASSERTIVA_CLIENT_ID${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_ID");
-    const clientSecret =
-      Deno.env.get(`ASSERTIVA_CLIENT_SECRET${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_SECRET");
+    const clientId = Deno.env.get("ASSERTIVA_CLIENT_ID");
+    const clientSecret = Deno.env.get("ASSERTIVA_CLIENT_SECRET");
 
     if (!clientId || !clientSecret) {
       return json({
         ok: false,
-        error: `Credenciais Assertiva não configuradas. Cadastre ASSERTIVA_CLIENT_ID${suffix} e ASSERTIVA_CLIENT_SECRET${suffix}.`,
+        error: "Credenciais Assertiva não configuradas (ASSERTIVA_CLIENT_ID / ASSERTIVA_CLIENT_SECRET).",
       }, 500);
     }
 
