@@ -339,30 +339,9 @@ Deno.serve(async (req) => {
     let linkAssinatura: string | null = findLinkDeep(pedidoJson);
     console.info("autentica: link encontrado no POST?", !!linkAssinatura, linkAssinatura?.slice(0, 80));
 
-    // Se a API não devolveu o link no POST, tentamos buscar via GET do pedido.
-    // Endpoints conhecidos da Autentica v1 (alguns retornam 403 dependendo do escopo).
-    if (!linkAssinatura && pedidoId) {
-      const candidatos = [
-        `/v1/jornadas/pedidos/${pedidoId}/link`,
-        `/v1/jornadas/pedidos/${pedidoId}/partes/links`,
-        parteId ? `/v1/jornadas/pedidos/${pedidoId}/partes/${parteId}/link` : null,
-        parteId ? `/v1/jornadas/pedidos/${pedidoId}/partes/${parteId}` : null,
-        `/v1/jornadas/pedidos/${pedidoId}`,
-        `/v1/jornadas/pedidos/${pedidoId}/partes`,
-        parteId ? `/v1/jornadas/partes/${parteId}/link` : null,
-        parteId ? `/v1/jornadas/partes/${parteId}` : null,
-      ].filter(Boolean) as string[];
-      for (const ep of candidatos) {
-        const r = await authedFetch(ep);
-        const txt = await r.text();
-        console.info("autentica: GET link tentativa", ep, r.status, txt.slice(0, 600));
-        if (r.ok) {
-          const j = safeJson(txt);
-          const link = findLinkDeep(j);
-          if (link) { linkAssinatura = link; break; }
-        }
-      }
-    }
+    // A Assertiva Autentica envia o link por SMS automaticamente; a API pública
+    // não retorna o link diretamente nem permite buscá-lo via GET (retorna 403).
+    // Por isso NÃO tentamos buscar o link aqui — isso causaria timeout no front.
 
     const externalId = String(pedidoId ?? parteId ?? protocolo ?? "");
 
