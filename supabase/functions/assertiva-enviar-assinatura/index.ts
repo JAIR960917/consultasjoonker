@@ -145,11 +145,15 @@ Deno.serve(async (req) => {
         detail: fluxosJson ?? fluxosText.slice(0, 300),
       }, 502);
     }
-    const fluxos: any[] = Array.isArray(fluxosJson) ? fluxosJson : (fluxosJson?.data ?? fluxosJson?.fluxos ?? []);
+    console.info("autentica: fluxos raw response", fluxosText.slice(0, 1500));
+    const fluxos: any[] = Array.isArray(fluxosJson)
+      ? fluxosJson
+      : (fluxosJson?.data ?? fluxosJson?.fluxos ?? fluxosJson?.items ?? fluxosJson?.content ?? fluxosJson?.resultado ?? []);
     if (!fluxos.length) {
       return json({
         ok: false,
         error: "Nenhum fluxo de coleta ativo encontrado na conta Assertiva. Crie um fluxo no Backoffice da Assertiva (com Selfie + Documento + Proposta).",
+        detail: fluxosJson ?? fluxosText.slice(0, 500),
       }, 400);
     }
     const fluxo = fluxos[0];
