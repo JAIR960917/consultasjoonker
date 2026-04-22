@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -9,11 +9,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { maskPhone } from "@/lib/contract";
 
+export interface EmpresaOption {
+  id: string;
+  nome: string;
+  cidade: string;
+}
+
 export interface AddressData {
   endereco: string;
   telefone: string;
   primeiroVencimento: string; // ISO yyyy-mm-dd
   cidade: string;
+  empresaId: string | null;
 }
 
 interface Props {
@@ -24,17 +31,19 @@ interface Props {
   clienteNome?: string;
   /** Cidade padrão (do usuário logado) — usada quando nenhuma seleção é exigida. */
   cidadePadrao?: string;
-  /** Quando preenchido, exibe seletor de cidade (admin). */
-  cidadesDisponiveis?: string[];
+  /** ID da empresa do gerente (preenchido automaticamente quando não há seletor). */
+  empresaPadraoId?: string | null;
+  /** Quando preenchido, exibe seletor de empresa (admin). */
+  empresasDisponiveis?: EmpresaOption[];
 }
 
 export function SaleAddressDialog({
-  open, onOpenChange, onConfirm, clienteNome, cidadePadrao, cidadesDisponiveis,
+  open, onOpenChange, onConfirm, clienteNome, cidadePadrao, empresaPadraoId, empresasDisponiveis,
 }: Props) {
   const [step, setStep] = useState<"form" | "confirm">("form");
   const [endereco, setEndereco] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [cidade, setCidade] = useState<string>(cidadePadrao || "");
+  const [empresaId, setEmpresaId] = useState<string>("");
   const defaultVenc = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -42,13 +51,22 @@ export function SaleAddressDialog({
   })();
   const [primeiroVencimento, setPrimeiroVencimento] = useState<string>(defaultVenc);
 
-  const mostrarSeletorCidade = !!cidadesDisponiveis && cidadesDisponiveis.length > 0;
+  const mostrarSeletorEmpresa = !!empresasDisponiveis && empresasDisponiveis.length > 0;
+
+  // Auto-seleciona quando há apenas uma empresa
+  useEffect(() => {
+    if (mostrarSeletorEmpresa && !empresaId && empresasDisponiveis!.length === 1) {
+      setEmpresaId(empresasDisponiveis![0].id);
+    }
+  }, [mostrarSeletorEmpresa, empresaId, empresasDisponiveis]);
+
+  const empresaSelecionada = empresasDisponiveis?.find((e) => e.id === empresaId) ?? null;
 
   const reset = () => {
     setStep("form");
     setEndereco("");
     setTelefone("");
-    setCidade(cidadePadrao || "");
+    setEmpresaId("");
     setPrimeiroVencimento(defaultVenc);
   };
 
@@ -57,13 +75,16 @@ export function SaleAddressDialog({
     onOpenChange(next);
   };
 
-  const cidadeFinal = mostrarSeletorCidade ? cidade : (cidadePadrao || "");
+  const cidadeFinal = mostrarSeletorEmpresa
+    ? (empresaSelecionada?.cidade || "")
+    : (cidadePadrao || "");
+  const empresaFinalId = mostrarSeletorEmpresa ? (empresaId || null) : (empresaPadraoId ?? null);
 
   const podeAvancar =
     endereco.trim().length >= 8 &&
     telefone.replace(/\D/g, "").length >= 10 &&
     !!primeiroVencimento &&
-    (!mostrarSeletorCidade || !!cidade);
+    (!mostrarSeletorEmpresa || !!empresaId);
 
   const vencFmt = primeiroVencimento
     ? new Date(primeiroVencimento + "T00:00:00").toLocaleDateString("pt-BR")
@@ -82,21 +103,23 @@ export function SaleAddressDialog({
             </DialogHeader>
 
             <div className="space-y-4">
-              {mostrarSeletorCidade && (
+              {mostrarSeletorEmpresa && (
                 <div className="space-y-2">
-                  <Label htmlFor="cidade">Cidade da venda</Label>
-                  <Select value={cidade} onValueChange={setCidade}>
-                    <SelectTrigger id="cidade">
-                      <SelectValue placeholder="Selecione a cidade" />
+                  <Label htmlFor="empresa">Empresa da venda</Label>
+                  <Select value={empresaId} onValueChange={setEmpresaId}>
+                    <SelectTrigger id="empresa">
+                      <SelectValue placeholder="Selecione a empresa" />
                     </SelectTrigger>
                     <SelectContent>
-                      {cidadesDisponiveis!.map((c) => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      {empresasDisponiveis!.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.nome}{e.cidade ? ` · ${e.cidade}` : ""}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Como administrador, escolha a cidade onde a venda está sendo realizada.
+                    Como administrador, escolha a empresa onde a venda está sendo realizada.
                   </p>
                 </div>
               )}
@@ -147,7 +170,15 @@ export function SaleAddressDialog({
             </DialogHeader>
 
             <div className="rounded-lg border bg-muted/30 p-4 space-y-3 text-sm">
-              {cidadeFinal && (
+              {empresaSelecionada && (
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Empresa da venda</p>
+                  <p className="font-medium">
+                    {empresaSelecionada.nome}{empresaSelecionada.cidade ? ` · ${empresaSelecionada.cidade}` : ""}
+                  </p>
+                </div>
+              )}
+              {!empresaSelecionada && cidadeFinal && (
                 <div>
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">Cidade da venda</p>
                   <p className="font-medium">{cidadeFinal}</p>
@@ -177,6 +208,7 @@ export function SaleAddressDialog({
                     telefone,
                     primeiroVencimento,
                     cidade: cidadeFinal,
+                    empresaId: empresaFinalId,
                   });
                   reset();
                 }}

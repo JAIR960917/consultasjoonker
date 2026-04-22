@@ -19,7 +19,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { SaleAddressDialog, type AddressData } from "@/components/SaleAddressDialog";
+import { SaleAddressDialog, type AddressData, type EmpresaOption } from "@/components/SaleAddressDialog";
 import { fillTemplate, valorExtenso, dataExtenso, dataExtensoTotal } from "@/lib/contract";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -48,7 +48,7 @@ export default function Consulta() {
   const [result, setResult] = useState<ConsultaResult | null>(null);
   const [consultaId, setConsultaId] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsLite | null>(null);
-  const [cidadesDisponiveis, setCidadesDisponiveis] = useState<string[]>([]);
+  const [empresasDisponiveis, setEmpresasDisponiveis] = useState<EmpresaOption[]>([]);
 
   // Simulação
   const [modoSimulacao, setModoSimulacao] = useState(false);
@@ -89,20 +89,20 @@ export default function Consulta() {
     });
   }, []);
 
-  // Admin: carrega lista de cidades cadastradas para seleção na venda
+  // Admin: carrega lista de empresas ativas para seleção na venda
   useEffect(() => {
     if (role !== "admin") return;
-    supabase.from("profiles").select("cidade").then(({ data }) => {
-      if (!data) return;
-      const unique = Array.from(
-        new Set(
-          data
-            .map((p) => (p.cidade || "").trim())
-            .filter((c) => c.length > 0),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR"));
-      setCidadesDisponiveis(unique);
-    });
+    supabase
+      .from("empresas")
+      .select("id, nome, cidade")
+      .eq("ativo", true)
+      .order("nome", { ascending: true })
+      .then(({ data }) => {
+        if (!data) return;
+        setEmpresasDisponiveis(
+          data.map((e) => ({ id: e.id, nome: e.nome, cidade: e.cidade ?? "" })),
+        );
+      });
   }, [role]);
 
   const total = parseFloat(valorTotal.replace(",", ".")) || 0;
@@ -180,6 +180,7 @@ export default function Consulta() {
 
       // 1) registra a venda
       const cidadeVenda = (endereco.cidade || cidadeUsuario || "").trim();
+      const empresaIdVenda = endereco.empresaId ?? empresaId ?? null;
       const { data: vendaIns, error: vendaErr } = await supabase
         .from("vendas")
         .insert({
@@ -196,7 +197,7 @@ export default function Consulta() {
           valor_financiado: financiado,
           status: "aprovado",
           cidade: cidadeVenda,
-          empresa_id: empresaId,
+          empresa_id: empresaIdVenda,
           primeiro_vencimento: endereco.primeiroVencimento || null,
         })
         .select("id")
@@ -262,7 +263,7 @@ export default function Consulta() {
           content: filled,
           status: "pendente",
           cidade: cidadeVenda,
-          empresa_id: empresaId,
+          empresa_id: empresaIdVenda,
         })
         .select("id")
         .single();
@@ -581,7 +582,8 @@ export default function Consulta() {
         onConfirm={confirmarVendaComEndereco}
         clienteNome={result?.nome}
         cidadePadrao={cidadeUsuario || ""}
-        cidadesDisponiveis={role === "admin" ? cidadesDisponiveis : undefined}
+        empresaPadraoId={empresaId}
+        empresasDisponiveis={role === "admin" ? empresasDisponiveis : undefined}
       />
     </AppLayout>
   );
