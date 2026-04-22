@@ -53,8 +53,8 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    // 1) Token (Autentica usa /v3/token, NÃO /oauth2/v3/token)
-    const tokenResp = await fetch(`${ASSERTIVA_BASE}/v3/token`, {
+    // 1) Token — endpoint correto confirmado pelo suporte Assertiva
+    const tokenResp = await fetch(`${ASSERTIVA_BASE}/oauth2/v3/token`, {
       method: "POST",
       headers: {
         Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
