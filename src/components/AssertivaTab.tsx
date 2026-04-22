@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, PlayCircle, KeyRound, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, PlayCircle, KeyRound, CheckCircle2, XCircle, Copy, ExternalLink } from "lucide-react";
 
 interface Empresa {
   id: string;
@@ -19,10 +18,6 @@ export function AssertivaTab() {
   const [slug, setSlug] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
-
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [savingCreds, setSavingCreds] = useState(false);
 
   useEffect(() => {
     supabase
@@ -58,31 +53,16 @@ export function AssertivaTab() {
     }
   };
 
-  const updateCreds = async () => {
-    if (!slug) return toast.error("Selecione uma empresa");
-    if (!clientId.trim() || !clientSecret.trim()) {
-      return toast.error("Preencha Client ID e Client Secret");
-    }
-    setSavingCreds(true);
+  const suffix = (slug || "").toUpperCase();
+  const idSecretName = `ASSERTIVA_CLIENT_ID_${suffix || "<EMPRESA>"}`;
+  const secretSecretName = `ASSERTIVA_CLIENT_SECRET_${suffix || "<EMPRESA>"}`;
+
+  const copy = async (text: string, label: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke("assertiva-update-credentials", {
-        body: {
-          empresa_slug: slug,
-          client_id: clientId.trim(),
-          client_secret: clientSecret.trim(),
-        },
-      });
-      if (error) throw error;
-      if (!data?.ok) throw new Error(data?.error ?? "Falha ao atualizar credenciais");
-      toast.success("Credenciais atualizadas", {
-        description: "Agora rode o diagnóstico para validar.",
-      });
-      setClientId("");
-      setClientSecret("");
-    } catch (err: any) {
-      toast.error("Erro ao atualizar credenciais", { description: err?.message ?? String(err) });
-    } finally {
-      setSavingCreds(false);
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copiado`);
+    } catch {
+      toast.error("Não foi possível copiar");
     }
   };
 
@@ -192,44 +172,38 @@ export function AssertivaTab() {
               Atualizar credenciais Assertiva
             </h2>
             <p className="text-sm text-muted-foreground">
-              Cole o <strong>Client ID</strong> e <strong>Client Secret</strong> em texto puro, exatamente como aparecem no painel
-              da Assertiva (não cole a string &quot;Basic ...&quot; codificada).
+              Por segurança, as credenciais ficam armazenadas como secrets do backend. Atualize-as diretamente no painel do
+              Lovable Cloud usando os nomes abaixo.
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+            <p className="text-sm font-medium">Para a empresa selecionada ({slug || "—"}), atualize estes dois secrets:</p>
+
             <div className="space-y-2">
-              <Label>Client ID</Label>
-              <Input
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                placeholder="ex: 12345-abcde-..."
-                autoComplete="off"
-              />
+              <SecretRow name={idSecretName} onCopy={() => copy(idSecretName, "Nome do secret")} />
+              <SecretRow name={secretSecretName} onCopy={() => copy(secretSecretName, "Nome do secret")} />
             </div>
-            <div className="space-y-2">
-              <Label>Client Secret</Label>
-              <Input
-                type="password"
-                value={clientSecret}
-                onChange={(e) => setClientSecret(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="off"
-              />
+
+            <ol className="list-decimal pl-5 text-sm text-muted-foreground space-y-1">
+              <li>Pegue o <strong>Client ID</strong> e <strong>Client Secret</strong> em texto puro no painel da Assertiva (não use a string &quot;Basic ...&quot; codificada).</li>
+              <li>Abra o painel de secrets do backend e atualize os dois nomes acima.</li>
+              <li>Aguarde alguns segundos para a propagação e clique em <strong>Testar geração de token</strong> acima.</li>
+            </ol>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href="https://supabase.com/dashboard/project/vtiimbbrxsfqgmscqdnl/settings/functions"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Abrir painel de secrets
+                </a>
+              </Button>
             </div>
           </div>
-
-          <div className="flex justify-end">
-            <Button onClick={updateCreds} disabled={savingCreds || !slug}>
-              {savingCreds ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Salvar credenciais para {slug || "—"}
-            </Button>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Os valores são armazenados como secrets em <code>ASSERTIVA_CLIENT_ID_{slug?.toUpperCase() || "<EMPRESA>"}</code> e
-            <code> ASSERTIVA_CLIENT_SECRET_{slug?.toUpperCase() || "<EMPRESA>"}</code>.
-          </p>
         </CardContent>
       </Card>
     </div>
