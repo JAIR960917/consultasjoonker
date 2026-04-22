@@ -318,6 +318,8 @@ Deno.serve(async (req) => {
     });
     const pedidoText = await pedidoResp.text();
     const pedidoJson = safeJson(pedidoText);
+    console.info("autentica: POST /pedidos status", pedidoResp.status);
+    console.info("autentica: POST /pedidos raw response", pedidoText.slice(0, 4000));
     if (!pedidoResp.ok) {
       console.error("Autentica criar pedido error:", pedidoResp.status, pedidoText.slice(0, 800));
       return json({
@@ -334,25 +336,31 @@ Deno.serve(async (req) => {
       pedidoJson?.data?.protocolo ?? pedidoJson?.protocolo ?? null;
     const parte = (pedidoJson?.data?.partes ?? pedidoJson?.partes ?? [])[0] ?? null;
     const parteId = parte?.parteId ?? parte?.id ?? null;
-    let linkAssinatura: string | null =
-      parte?.link ?? parte?.url ?? parte?.linkAssinatura ?? parte?.urlAssinatura ?? pedidoJson?.link ?? null;
+
+    // Procura o link recursivamente em qualquer campo do JSON (cobre variações).
+    let linkAssinatura: string | null = findLinkDeep(pedidoJson);
+    console.info("autentica: link encontrado no POST?", !!linkAssinatura, linkAssinatura?.slice(0, 80));
 
     // Se a API não devolveu o link no POST, tentamos buscar via GET do pedido.
+    // Endpoints conhecidos da Autentica v1 (alguns retornam 403 dependendo do escopo).
     if (!linkAssinatura && pedidoId) {
       const candidatos = [
+        `/v1/jornadas/pedidos/${pedidoId}/link`,
+        `/v1/jornadas/pedidos/${pedidoId}/partes/links`,
+        parteId ? `/v1/jornadas/pedidos/${pedidoId}/partes/${parteId}/link` : null,
+        parteId ? `/v1/jornadas/pedidos/${pedidoId}/partes/${parteId}` : null,
         `/v1/jornadas/pedidos/${pedidoId}`,
         `/v1/jornadas/pedidos/${pedidoId}/partes`,
+        parteId ? `/v1/jornadas/partes/${parteId}/link` : null,
         parteId ? `/v1/jornadas/partes/${parteId}` : null,
       ].filter(Boolean) as string[];
       for (const ep of candidatos) {
         const r = await authedFetch(ep);
         const txt = await r.text();
-        console.info("autentica: GET link tentativa", ep, r.status, txt.slice(0, 400));
+        console.info("autentica: GET link tentativa", ep, r.status, txt.slice(0, 600));
         if (r.ok) {
           const j = safeJson(txt);
-          const partes = j?.data?.partes ?? j?.partes ?? (Array.isArray(j?.data) ? j.data : []);
-          const p0 = Array.isArray(partes) ? partes[0] : partes;
-          const link = p0?.link ?? p0?.url ?? p0?.linkAssinatura ?? p0?.urlAssinatura ?? j?.data?.link ?? j?.link ?? null;
+          const link = findLinkDeep(j);
           if (link) { linkAssinatura = link; break; }
         }
       }
@@ -385,6 +393,34 @@ Deno.serve(async (req) => {
 
 function safeJson(text: string): any {
   try { return JSON.parse(text); } catch { return null; }
+}
+
+// Procura recursivamente por uma URL de assinatura em qualquer campo do objeto.
+function findLinkDeep(obj: any, depth = 0): string | null {
+  if (!obj || depth > 8) return null;
+  if (typeof obj === "string") {
+    if (/^https?:\/\//i.test(obj) && /(autentic|assinatur|jornad|assertiv|short)/i.test(obj)) return obj;
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    for (const it of obj) {
+      const r = findLinkDeep(it, depth + 1);
+      if (r) return r;
+    }
+    return null;
+  }
+  if (typeof obj === "object") {
+    const priority = ["linkAssinatura", "urlAssinatura", "shortUrl", "linkCurto", "link", "url"];
+    for (const k of priority) {
+      const v = (obj as any)[k];
+      if (typeof v === "string" && /^https?:\/\//i.test(v)) return v;
+    }
+    for (const k of Object.keys(obj)) {
+      const r = findLinkDeep((obj as any)[k], depth + 1);
+      if (r) return r;
+    }
+  }
+  return null;
 }
 
 function json(data: unknown, _status = 200) {
