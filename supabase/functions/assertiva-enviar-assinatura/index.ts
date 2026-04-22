@@ -329,13 +329,36 @@ Deno.serve(async (req) => {
     }
 
     const pedidoId =
-      pedidoJson?.id ?? pedidoJson?.pedidoId ?? pedidoJson?.data?.id ?? null;
+      pedidoJson?.data?.pedidoId ?? pedidoJson?.pedidoId ?? pedidoJson?.id ?? pedidoJson?.data?.id ?? null;
     const protocolo =
-      pedidoJson?.protocolo ?? pedidoJson?.data?.protocolo ?? null;
-    const parte = (pedidoJson?.partes ?? pedidoJson?.data?.partes ?? [])[0] ?? null;
-    const parteId = parte?.id ?? null;
-    const linkAssinatura = parte?.link ?? pedidoJson?.link ?? null;
-    const externalId = String(parteId ?? pedidoId ?? protocolo ?? "");
+      pedidoJson?.data?.protocolo ?? pedidoJson?.protocolo ?? null;
+    const parte = (pedidoJson?.data?.partes ?? pedidoJson?.partes ?? [])[0] ?? null;
+    const parteId = parte?.parteId ?? parte?.id ?? null;
+    let linkAssinatura: string | null =
+      parte?.link ?? parte?.url ?? parte?.linkAssinatura ?? parte?.urlAssinatura ?? pedidoJson?.link ?? null;
+
+    // Se a API não devolveu o link no POST, tentamos buscar via GET do pedido.
+    if (!linkAssinatura && pedidoId) {
+      const candidatos = [
+        `/v1/jornadas/pedidos/${pedidoId}`,
+        `/v1/jornadas/pedidos/${pedidoId}/partes`,
+        parteId ? `/v1/jornadas/partes/${parteId}` : null,
+      ].filter(Boolean) as string[];
+      for (const ep of candidatos) {
+        const r = await authedFetch(ep);
+        const txt = await r.text();
+        console.info("autentica: GET link tentativa", ep, r.status, txt.slice(0, 400));
+        if (r.ok) {
+          const j = safeJson(txt);
+          const partes = j?.data?.partes ?? j?.partes ?? (Array.isArray(j?.data) ? j.data : []);
+          const p0 = Array.isArray(partes) ? partes[0] : partes;
+          const link = p0?.link ?? p0?.url ?? p0?.linkAssinatura ?? p0?.urlAssinatura ?? j?.data?.link ?? j?.link ?? null;
+          if (link) { linkAssinatura = link; break; }
+        }
+      }
+    }
+
+    const externalId = String(pedidoId ?? parteId ?? protocolo ?? "");
 
     await admin.from("contracts").update({
       signature_provider: "assertiva-autentica",
