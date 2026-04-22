@@ -256,7 +256,10 @@ Deno.serve(async (req) => {
       }
     } catch (_) { /* noop */ }
 
-    const putHeaders: Record<string, string> = { "Content-Type": "application/pdf" };
+    // IMPORTANTE: a Assertiva assina a URL SEM Content-Type. Se enviarmos
+    // Content-Type, o S3 inclui no StringToSign e a assinatura quebra
+    // (SignatureDoesNotMatch). Enviamos só o x-amz-security-token.
+    const putHeaders: Record<string, string> = {};
     if (amzToken) putHeaders["x-amz-security-token"] = amzToken;
 
     console.info("autentica: PUT upload", {
