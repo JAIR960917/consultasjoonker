@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck, Trash2 } from "lucide-react";
+import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck, Trash2, RefreshCw } from "lucide-react";
 import { maskCpf, brl } from "@/lib/finance";
 import { downloadContractPdf } from "@/lib/pdf";
 import { SignatureMockDialog } from "@/components/SignatureMockDialog";
@@ -57,6 +57,7 @@ export default function Contrato() {
   const [signDialog, setSignDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const handleDelete = async () => {
     if (!c) return;
@@ -172,6 +173,28 @@ export default function Contrato() {
     setSignDialog(true);
   };
 
+  const handleSyncStatus = async () => {
+    if (!c) return;
+    setSyncing(true);
+    const { data, error } = await supabase.functions.invoke("assertiva-sincronizar-status", {
+      body: { contrato_id: c.id },
+    });
+    setSyncing(false);
+    if (error || !data?.ok) {
+      const msg = data?.error || error?.message || "Erro desconhecido";
+      toast.error("Falha ao sincronizar", { description: msg });
+      return;
+    }
+    if (data.status === "assinado") {
+      setC({ ...c, status: "assinado", signed_at: new Date().toISOString() });
+      toast.success("Contrato assinado!", { description: "Status atualizado a partir da Assertiva." });
+    } else {
+      toast.info("Ainda não assinado", {
+        description: `Status na Assertiva: ${data.statusPedido || data.statusParte || "pendente"}`,
+      });
+    }
+  };
+
   const handleSimulateSign = async () => {
     if (!c) return;
     const now = new Date().toISOString();
@@ -283,9 +306,15 @@ export default function Contrato() {
               <CheckCircle2 className="mr-2 h-4 w-4" /> Assinado
             </Button>
           ) : enviado ? (
-            <Button onClick={() => setSignDialog(true)} className="bg-warning text-warning-foreground hover:bg-warning/90" size="lg">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Aguardando assinatura
-            </Button>
+            <>
+              <Button onClick={handleSyncStatus} disabled={syncing} variant="outline">
+                {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Sincronizar status
+              </Button>
+              <Button onClick={() => setSignDialog(true)} className="bg-warning text-warning-foreground hover:bg-warning/90" size="lg">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Aguardando assinatura
+              </Button>
+            </>
           ) : (
             <Button
               onClick={handleStartSignature}
