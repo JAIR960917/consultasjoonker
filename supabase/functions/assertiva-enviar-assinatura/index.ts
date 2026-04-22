@@ -176,11 +176,21 @@ Deno.serve(async (req) => {
     const perfisJson = safeJson(perfisText);
     if (!perfisResp.ok) {
       console.error("Autentica perfis error:", perfisResp.status, perfisText.slice(0, 500));
-      return json({ ok: false, error: `Falha ao obter perfis de assinatura (HTTP ${perfisResp.status})` }, 502);
+      return json({ ok: false, error: `Falha ao obter perfis de assinatura (HTTP ${perfisResp.status})`, detail: perfisJson ?? perfisText.slice(0, 300) }, 502);
     }
-    const perfis: any[] = Array.isArray(perfisJson) ? perfisJson : (perfisJson?.data ?? perfisJson?.perfis ?? []);
-    const perfil = perfis[0];
-    if (!perfil) return json({ ok: false, error: "Nenhum perfil de assinatura disponível" }, 502);
+    console.info("autentica: perfis raw response", perfisText.slice(0, 1500));
+    const perfis: any[] = Array.isArray(perfisJson)
+      ? perfisJson
+      : (perfisJson?.data?.perfis
+        ?? perfisJson?.data?.items
+        ?? perfisJson?.perfis
+        ?? perfisJson?.items
+        ?? perfisJson?.content
+        ?? perfisJson?.resultado
+        ?? perfisJson?.data
+        ?? []);
+    const perfil = perfis.find((p: any) => (p?.campos?.length ?? p?.fields?.length ?? 0) > 0) ?? perfis[0];
+    if (!perfil) return json({ ok: false, error: "Nenhum perfil de assinatura disponível", detail: perfisJson ?? perfisText.slice(0, 500) }, 502);
     const campos: any[] = perfil?.campos ?? perfil?.fields ?? [];
     const findCampo = (...names: string[]): string | null => {
       for (const c of campos) {
