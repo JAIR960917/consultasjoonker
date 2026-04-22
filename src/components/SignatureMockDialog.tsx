@@ -89,7 +89,7 @@ export function SignatureMockDialog({ open, onOpenChange, signatureUrl, status, 
 
             {!hasUrl && (
               <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs text-muted-foreground">
-                O link de assinatura ainda não foi retornado pelo provedor. Clique em "Sincronizar status" na tela do contrato para tentar novamente.
+                A Assertiva Autentica entrega o link diretamente no SMS/WhatsApp do cliente e não disponibiliza a URL para reexibição aqui. Se o cliente não recebeu, reenvie a partir da tela do contrato.
               </div>
             )}
 
