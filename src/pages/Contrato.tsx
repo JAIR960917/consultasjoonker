@@ -58,6 +58,43 @@ export default function Contrato() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [downloadingSigned, setDownloadingSigned] = useState(false);
+
+  const handleDownloadSigned = async () => {
+    if (!c) return;
+    setDownloadingSigned(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("assertiva-baixar-assinado", {
+        body: { contrato_id: c.id },
+      });
+      if (error) throw error;
+      if (!data?.ok) {
+        toast.error("Documento ainda não disponível", {
+          description: data?.error ?? "A Assertiva ainda não disponibilizou o PDF assinado.",
+        });
+        return;
+      }
+      if (data.pdf_base64) {
+        const bin = atob(data.pdf_base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = data.filename ?? "contrato-assinado.pdf";
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Contrato assinado baixado");
+      } else if (data.pdf_url) {
+        window.open(data.pdf_url, "_blank");
+      }
+    } catch (e: any) {
+      toast.error("Erro ao baixar contrato assinado", { description: e?.message });
+    } finally {
+      setDownloadingSigned(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!c) return;
@@ -273,32 +310,18 @@ export default function Contrato() {
           )}
 
           {assinado && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button
-                      onClick={() => {
-                        const url = c.signature_data?.signed_pdf_url;
-                        if (url) window.open(url, "_blank");
-                      }}
-                      disabled={!c.signature_data?.signed_pdf_url}
-                      className="bg-success text-success-foreground hover:bg-success/90"
-                    >
-                      <ShieldCheck className="mr-2 h-4 w-4" /> Baixar contrato assinado
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {!c.signature_data?.signed_pdf_url && (
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-xs">
-                      O PDF oficial com certificado e trilha de auditoria estará disponível
-                      assim que a integração com a Assertiva Assinaturas for ativada.
-                    </p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
+            <Button
+              onClick={handleDownloadSigned}
+              disabled={downloadingSigned}
+              className="bg-success text-success-foreground hover:bg-success/90"
+            >
+              {downloadingSigned ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="mr-2 h-4 w-4" />
+              )}
+              Baixar contrato assinado
+            </Button>
           )}
 
           {assinado ? (
