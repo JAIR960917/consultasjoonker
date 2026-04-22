@@ -1,10 +1,15 @@
 // Edge Function: assertiva-enviar-assinatura
 // Envia um contrato para assinatura via WhatsApp na Assertiva Assinaturas.
-// Usa secrets nomeados por slug da empresa, com fallback global:
-//   ASSERTIVA_AUTH_TOKEN_<SLUG>  →  ASSERTIVA_AUTH_TOKEN
+//
+// Autenticação: OAuth2 client_credentials no endpoint
+//   POST https://api.assertivasolucoes.com.br/oauth2/v3/token
+// usando ASSERTIVA_CLIENT_ID_<SLUG> + ASSERTIVA_CLIENT_SECRET_<SLUG>
+// (com fallback para os secrets globais sem sufixo).
+//
+// Compatibilidade: se a empresa ainda só tem ASSERTIVA_AUTH_TOKEN_<SLUG>
+// configurado (token estático antigo), usa esse token diretamente.
 //
 // Body: { contrato_id: string }
-// Marca contracts.signature_provider="assertiva", signature_external_id, signature_url, status="enviado_assinatura"
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -40,7 +45,6 @@ Deno.serve(async (req) => {
     const body = (await req.json().catch(() => ({}))) as Partial<BodyInput>;
     if (!body.contrato_id) return json({ ok: false, error: "contrato_id obrigatório" }, 400);
 
-    // Carrega contrato
     const { data: contrato, error: contratoErr } = await admin
       .from("contracts")
       .select("id, user_id, nome, cpf, telefone, content, empresa_id, status")
@@ -48,7 +52,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (contratoErr || !contrato) return json({ ok: false, error: "Contrato não encontrado" }, 404);
 
-    // Permissão: dono ou admin
     if (contrato.user_id !== userId) {
       const { data: roleRow } = await admin
         .from("user_roles").select("role")
@@ -60,7 +63,6 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Contrato sem telefone para envio via WhatsApp" }, 400);
     }
 
-    // Resolve slug da empresa
     let empresaSlug: string | null = null;
     if (contrato.empresa_id) {
       const { data: emp } = await admin
@@ -72,19 +74,56 @@ Deno.serve(async (req) => {
     }
 
     const suffix = empresaSlug ? `_${empresaSlug}` : "";
-    const assertivaToken = Deno.env.get(`ASSERTIVA_AUTH_TOKEN${suffix}`) ?? Deno.env.get("ASSERTIVA_AUTH_TOKEN");
-    if (!assertivaToken) {
-      return json({
-        ok: false,
-        error: `Secret ASSERTIVA_AUTH_TOKEN${suffix} não configurado`,
-      }, 500);
+
+    // 1) Tenta OAuth2 client_credentials
+    const clientId =
+      Deno.env.get(`ASSERTIVA_CLIENT_ID${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_ID");
+    const clientSecret =
+      Deno.env.get(`ASSERTIVA_CLIENT_SECRET${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_SECRET");
+
+    let bearer: string | null = null;
+    let authMode: "oauth2" | "static" = "oauth2";
+
+    if (clientId && clientSecret) {
+      const tokenResp = await fetch(`${ASSERTIVA_BASE}/oauth2/v3/token`, {
+        method: "POST",
+        headers: {
+          Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: "grant_type=client_credentials",
+      });
+      const tokenText = await tokenResp.text();
+      let tokenJson: any = null;
+      try { tokenJson = JSON.parse(tokenText); } catch {}
+      if (!tokenResp.ok || !tokenJson?.access_token) {
+        console.error("Assertiva OAuth2 token error:", tokenResp.status, tokenText.slice(0, 500));
+        return json({
+          ok: false,
+          error: tokenJson?.error_description || tokenJson?.message ||
+            `Falha ao obter token OAuth2 (HTTP ${tokenResp.status}). Verifique ASSERTIVA_CLIENT_ID${suffix} / ASSERTIVA_CLIENT_SECRET${suffix}.`,
+        }, 502);
+      }
+      bearer = tokenJson.access_token as string;
+    } else {
+      // 2) Fallback compatibilidade: usa token estático antigo
+      const staticToken =
+        Deno.env.get(`ASSERTIVA_AUTH_TOKEN${suffix}`) ?? Deno.env.get("ASSERTIVA_AUTH_TOKEN");
+      if (!staticToken) {
+        return json({
+          ok: false,
+          error:
+            `Credenciais Assertiva não configuradas. Cadastre ASSERTIVA_CLIENT_ID${suffix} e ASSERTIVA_CLIENT_SECRET${suffix}.`,
+        }, 500);
+      }
+      bearer = staticToken;
+      authMode = "static";
     }
 
-    // Limpa telefone (apenas dígitos com DDI 55)
     const telefoneDigits = contrato.telefone.replace(/\D/g, "");
     const celular = telefoneDigits.startsWith("55") ? telefoneDigits : `55${telefoneDigits}`;
 
-    // Payload da Assertiva Assinaturas — envio único signatário via WhatsApp
     const payload = {
       nome: `Contrato ${contrato.nome} - ${contrato.cpf}`,
       mensagem: "Olá! Segue o contrato para sua assinatura.",
@@ -100,7 +139,6 @@ Deno.serve(async (req) => {
       ],
       arquivo: {
         nome: `contrato-${contrato.id}.txt`,
-        // A Assertiva aceita conteúdo base64; aqui mandamos o texto convertido.
         conteudo: btoa(unescape(encodeURIComponent(contrato.content))),
       },
     };
@@ -108,7 +146,7 @@ Deno.serve(async (req) => {
     const resp = await fetch(`${ASSERTIVA_BASE}/v3/assinaturas/documentos`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${assertivaToken}`,
+        Authorization: `Bearer ${bearer}`,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
@@ -120,17 +158,17 @@ Deno.serve(async (req) => {
     try { respJson = JSON.parse(respText); } catch {}
 
     if (!resp.ok) {
-      console.error("Assertiva error:", resp.status, respText.slice(0, 500));
+      console.error("Assertiva error:", resp.status, respText.slice(0, 500), "authMode=", authMode);
       return json({
         ok: false,
-        error: respJson?.message || respJson?.erro || `HTTP ${resp.status}: ${respText.slice(0, 300)}`,
+        error: respJson?.message || respJson?.erro ||
+          `HTTP ${resp.status}: ${respText.slice(0, 300)} (authMode=${authMode})`,
       }, 502);
     }
 
     const externalId = respJson?.id ?? respJson?.documento?.id ?? respJson?.data?.id ?? null;
     const signatureUrl = respJson?.url ?? respJson?.documento?.url ?? respJson?.data?.url ?? null;
 
-    // Atualiza contrato
     await admin.from("contracts").update({
       signature_provider: "assertiva",
       signature_external_id: externalId,
@@ -145,6 +183,7 @@ Deno.serve(async (req) => {
       external_id: externalId,
       signature_url: signatureUrl,
       empresa_slug: empresaSlug,
+      auth_mode: authMode,
     });
   } catch (err) {
     console.error("assertiva-enviar-assinatura error", err);
@@ -153,8 +192,6 @@ Deno.serve(async (req) => {
 });
 
 function json(data: unknown, _status = 200) {
-  // Sempre responder 200 para que o cliente consiga ler { ok, error }
-  // sem cair no erro genérico "non-2xx status code" do supabase-js.
   return new Response(JSON.stringify(data), {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
