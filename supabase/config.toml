@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.cora-webhook]
 verify_jwt = false
+
+[functions.assertiva-webhook]
+verify_jwt = false
