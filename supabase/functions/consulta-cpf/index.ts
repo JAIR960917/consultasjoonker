@@ -84,6 +84,7 @@ interface SerasaResult {
   totalPendencias: number;
   somaPendencias: number;
   raw: unknown;
+  dataNascimento: string | null;
 }
 
 // ===== Chamada ao Relatório Básico PF =====
