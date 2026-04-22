@@ -350,7 +350,7 @@ Deno.serve(async (req) => {
       signature_external_id: externalId,
       signature_url: linkAssinatura,
       signature_data: pedidoJson,
-      status: "enviado_assinatura",
+      status: "aguardando_assinatura",
     }).eq("id", contrato.id);
 
     return json({
