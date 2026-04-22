@@ -215,8 +215,12 @@ Deno.serve(async (req) => {
     const fileName = `contrato-${contrato.id}.pdf`;
 
     // ---------- 5) Upload do PDF ----------
+    // Conforme a coleção oficial Postman da Assertiva ("3 - Criar Pedido" →
+    // "Obter Links Upload PDFs" + "Upload PDF para uso no Pedido"):
+    //   GET  /v1/jornadas/arquivos/obter-link-upload-interno?quantidadeLinks=1
+    //   PUT  <url-temporaria>  com Content-Type: application/octet-stream
     const uploadLinkResp = await authedFetch(
-      `/v1/jornadas/arquivos/obter-link-upload-interno?nomeArquivo=${encodeURIComponent(fileName)}`,
+      `/v1/jornadas/arquivos/obter-link-upload-interno?quantidadeLinks=1`,
     );
     const uploadLinkText = await uploadLinkResp.text();
     const uploadLinkJson = safeJson(uploadLinkText);
@@ -237,84 +241,23 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Resposta do link de upload inesperada", detail: uploadLinkJson ?? uploadLinkText.slice(0, 500) }, 502);
     }
 
-    // O link retornado pela Assertiva usa URL pré-assinada antiga do S3 (SigV2)
-    // com credencial temporária. Alguns provedores/SDKs assinam esperando
-    // combinações diferentes de headers. Para evitar outro loop de tentativa e erro,
-    // fazemos algumas variações controladas até achar a forma aceita pelo bucket.
-    let amzToken: string | null = null;
-    try {
-      const qs = uploadUrl.split("?")[1] ?? "";
-      for (const part of qs.split("&")) {
-        const eq = part.indexOf("=");
-        if (eq < 0) continue;
-        const k = part.slice(0, eq);
-        if (k === "x-amz-security-token") {
-          amzToken = decodeURIComponent(part.slice(eq + 1));
-          break;
-        }
-      }
-    } catch (_) { /* noop */ }
-
-    const uploadAttempts: Array<{ name: string; headers: Record<string, string> }> = [
-      { name: "bare", headers: {} },
-      { name: "empty-content-type", headers: { "Content-Type": "" } },
-    ];
-    if (amzToken) {
-      uploadAttempts.push(
-        { name: "token-header", headers: { "x-amz-security-token": amzToken } },
-        {
-          name: "token-header-empty-content-type",
-          headers: { "x-amz-security-token": amzToken, "Content-Type": "" },
-        },
-      );
-    }
-
     console.info("autentica: PUT upload", {
       host: new URL(uploadUrl).host,
       path: new URL(uploadUrl).pathname,
-      hasTokenInQuery: uploadUrl.includes("x-amz-security-token="),
-      tokenLen: amzToken?.length ?? 0,
-      attempts: uploadAttempts.map((a) => a.name),
       bytes: pdfBytes.byteLength,
     });
 
-    let putResp: Response | null = null;
-    let putErrorText = "";
-    let successfulAttempt: string | null = null;
-
-    for (const attempt of uploadAttempts) {
-      const resp = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: attempt.headers,
-        body: pdfBytes.slice(),
-      });
-
-      if (resp.ok) {
-        putResp = resp;
-        successfulAttempt = attempt.name;
-        break;
-      }
-
-      const txt = await resp.text();
-      console.error(`Autentica PUT pdf error [${attempt.name}]:`, resp.status, txt.slice(0, 800));
-
-      if (resp.status !== 403 || !txt.includes("SignatureDoesNotMatch")) {
-        return json({ ok: false, error: `Falha ao subir PDF (HTTP ${resp.status}): ${txt.slice(0, 200)}` }, 502);
-      }
-
-      putResp = resp;
-      putErrorText = txt;
+    const putResp = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: pdfBytes,
+    });
+    if (!putResp.ok) {
+      const txt = await putResp.text();
+      console.error("Autentica PUT pdf error:", putResp.status, txt.slice(0, 800));
+      return json({ ok: false, error: `Falha ao subir PDF (HTTP ${putResp.status}): ${txt.slice(0, 200)}` }, 502);
     }
-
-    if (!putResp?.ok) {
-      return json({
-        ok: false,
-        error: "A Assertiva retornou um link temporário de upload inválido para o PDF; o upload falhou antes mesmo da criação do pedido.",
-        detail: putErrorText.slice(0, 400),
-      }, 502);
-    }
-
-    console.info("autentica: PUT upload OK", { status: putResp.status, attempt: successfulAttempt });
+    console.info("autentica: PUT upload OK", putResp.status);
 
     // ---------- 6) Cria pedido ----------
     const telefoneDigits = contrato.telefone.replace(/\D/g, "");
