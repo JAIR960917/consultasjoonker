@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, ignored: true, reason: "sem id" });
     }
 
-    // Busca por id externo ou por protocolo (alguns eventos retornam só protocolo)
+    // Busca por id externo (pedidoId), protocolo ou parteId dentro de signature_data
     let contrato: { id: string; status: string } | null = null;
     {
       const { data } = await admin
@@ -79,6 +79,28 @@ Deno.serve(async (req) => {
         .eq("signature_external_id", protocoloAutentica)
         .maybeSingle();
       contrato = data ?? null;
+    }
+    // Fallback: webhook trouxe parteId/eventoId — varre signature_data dos contratos pendentes
+    if (!contrato) {
+      const candidatos = [externalId, protocoloAutentica].filter(Boolean) as string[];
+      const { data: pendentes } = await admin
+        .from("contracts")
+        .select("id, status, signature_data, signature_external_id")
+        .eq("signature_provider", "assertiva-autentica")
+        .in("status", ["aguardando_assinatura", "pendente"]);
+      for (const c of pendentes ?? []) {
+        const sd: any = c.signature_data ?? {};
+        const partes: any[] = sd?.data?.partes ?? sd?.partes ?? [];
+        const parteIds = partes.map((p) => String(p?.parteId ?? p?.id ?? "")).filter(Boolean);
+        const protocolos = partes.map((p) => String(p?.protocolo ?? "")).filter(Boolean);
+        const pedidoId = String(sd?.data?.pedidoId ?? sd?.pedidoId ?? "");
+        const protocoloPedido = String(sd?.data?.protocolo ?? sd?.protocolo ?? "");
+        const todos = new Set([...parteIds, ...protocolos, pedidoId, protocoloPedido, c.signature_external_id ?? ""]);
+        if (candidatos.some((x) => todos.has(x))) {
+          contrato = { id: c.id, status: c.status };
+          break;
+        }
+      }
     }
 
     if (!contrato) {
