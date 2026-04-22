@@ -289,9 +289,19 @@ export default function Empresas() {
                 onChange={(e) => setForm({ ...form, slug: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "") })}
                 placeholder="EX: OTICA_CENTRO"
               />
-              <p className="text-xs text-muted-foreground">
-                Secrets Cora: <code>CORA_CLIENT_ID_{form.slug || "SLUG"}</code>, <code>CORA_CERTIFICATE_{form.slug || "SLUG"}</code>, <code>CORA_PRIVATE_KEY_{form.slug || "SLUG"}</code>
-              </p>
+              <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1.5">
+                <p className="font-medium text-foreground">Após salvar, cadastre os 5 secrets desta empresa:</p>
+                <ul className="space-y-0.5 text-muted-foreground">
+                  <li><code className="text-foreground">CORA_CLIENT_ID_{form.slug || "SLUG"}</code></li>
+                  <li><code className="text-foreground">CORA_CERTIFICATE_{form.slug || "SLUG"}</code></li>
+                  <li><code className="text-foreground">CORA_PRIVATE_KEY_{form.slug || "SLUG"}</code></li>
+                  <li><code className="text-foreground">ASSERTIVA_AUTH_TOKEN_{form.slug || "SLUG"}</code></li>
+                  <li><code className="text-foreground">ASSERTIVA_WEBHOOK_SECRET_{form.slug || "SLUG"}</code></li>
+                </ul>
+                <p className="text-muted-foreground pt-1">
+                  Use o botão <KeyRound className="inline h-3 w-3" /> na lista para copiar os nomes e a URL do webhook.
+                </p>
+              </div>
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
@@ -309,6 +319,94 @@ export default function Empresas() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Diálogo de credenciais por empresa */}
+      <Dialog open={!!credEmpresa} onOpenChange={(o) => !o && setCredEmpresa(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Credenciais — {credEmpresa?.nome}</DialogTitle>
+            <DialogDescription>
+              Os valores destes 5 secrets ficam armazenados no cofre do Lovable Cloud.
+              Peça ao desenvolvedor para cadastrá-los (ou abrir o formulário seguro) usando exatamente os nomes abaixo.
+            </DialogDescription>
+          </DialogHeader>
+
+          {credEmpresa && (
+            <div className="space-y-4 text-sm">
+              <div>
+                <p className="mb-1.5 font-medium">Cora (boletos/PIX)</p>
+                <div className="space-y-1.5">
+                  {[
+                    `CORA_CLIENT_ID_${credEmpresa.slug}`,
+                    `CORA_CERTIFICATE_${credEmpresa.slug}`,
+                    `CORA_PRIVATE_KEY_${credEmpresa.slug}`,
+                  ].map((s) => (
+                    <SecretRow key={s} value={s} copiedKey={copiedKey} onCopy={copyText} />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1.5 font-medium">Assertiva (assinatura)</p>
+                <div className="space-y-1.5">
+                  {[
+                    `ASSERTIVA_AUTH_TOKEN_${credEmpresa.slug}`,
+                    `ASSERTIVA_WEBHOOK_SECRET_${credEmpresa.slug}`,
+                  ].map((s) => (
+                    <SecretRow key={s} value={s} copiedKey={copiedKey} onCopy={copyText} />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1.5 font-medium">URL do webhook Assertiva</p>
+                <p className="mb-1.5 text-xs text-muted-foreground">
+                  Configure esta URL no painel da Assertiva desta empresa:
+                </p>
+                <SecretRow
+                  value={`${SUPABASE_URL}/functions/v1/assertiva-webhook?slug=${credEmpresa.slug}`}
+                  copiedKey={copiedKey}
+                  onCopy={copyText}
+                />
+              </div>
+
+              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                <p>
+                  Se algum secret não for cadastrado, o sistema usará as credenciais globais como fallback
+                  (<code>CORA_CLIENT_ID</code>, <code>ASSERTIVA_AUTH_TOKEN</code>, etc).
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCredEmpresa(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
+  );
+}
+
+function SecretRow({
+  value, copiedKey, onCopy,
+}: {
+  value: string;
+  copiedKey: string | null;
+  onCopy: (text: string, key: string) => void;
+}) {
+  const isCopied = copiedKey === value;
+  return (
+    <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-2.5 py-1.5">
+      <code className="flex-1 truncate text-xs">{value}</code>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 w-7 p-0"
+        onClick={() => onCopy(value, value)}
+      >
+        {isCopied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+      </Button>
+    </div>
   );
 }
