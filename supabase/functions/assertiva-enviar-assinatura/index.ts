@@ -237,11 +237,10 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Resposta do link de upload inesperada", detail: uploadLinkJson ?? uploadLinkText.slice(0, 500) }, 502);
     }
 
-    // S3 SigV2 com STS: o `x-amz-security-token` aparece na query mas o S3
-    // o inclui no StringToSign como header canonicalizado. Precisamos enviá-lo
-    // como header HTTP no PUT, com o valor exato decodificado.
-    // Extraímos o token preservando caracteres ('+' tratados como espaço pelo
-    // URLSearchParams quebram a assinatura, então parseamos manualmente).
+    // O link retornado pela Assertiva usa URL pré-assinada antiga do S3 (SigV2)
+    // com credencial temporária. Alguns provedores/SDKs assinam esperando
+    // combinações diferentes de headers. Para evitar outro loop de tentativa e erro,
+    // fazemos algumas variações controladas até achar a forma aceita pelo bucket.
     let amzToken: string | null = null;
     try {
       const qs = uploadUrl.split("?")[1] ?? "";
@@ -256,31 +255,62 @@ Deno.serve(async (req) => {
       }
     } catch (_) { /* noop */ }
 
-    // IMPORTANTE: a Assertiva assina a URL SEM Content-Type. Se enviarmos
-    // Content-Type, o S3 inclui no StringToSign e a assinatura quebra
-    // (SignatureDoesNotMatch). Enviamos só o x-amz-security-token.
-    const putHeaders: Record<string, string> = {};
-    if (amzToken) putHeaders["x-amz-security-token"] = amzToken;
+    const uploadAttempts: Array<{ name: string; headers: Record<string, string> }> = [
+      { name: "bare", headers: {} },
+      { name: "empty-content-type", headers: { "Content-Type": "" } },
+    ];
+    if (amzToken) {
+      uploadAttempts.push(
+        { name: "token-header", headers: { "x-amz-security-token": amzToken } },
+        {
+          name: "token-header-empty-content-type",
+          headers: { "x-amz-security-token": amzToken, "Content-Type": "" },
+        },
+      );
+    }
 
     console.info("autentica: PUT upload", {
       host: new URL(uploadUrl).host,
       path: new URL(uploadUrl).pathname,
-      hasTokenHeader: !!amzToken,
+      hasTokenInQuery: uploadUrl.includes("x-amz-security-token="),
       tokenLen: amzToken?.length ?? 0,
+      attempts: uploadAttempts.map((a) => a.name),
       bytes: pdfBytes.byteLength,
     });
 
-    const putResp = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: putHeaders,
-      body: pdfBytes,
-    });
-    if (!putResp.ok) {
-      const txt = await putResp.text();
-      console.error("Autentica PUT pdf error:", putResp.status, txt.slice(0, 800));
-      return json({ ok: false, error: `Falha ao subir PDF (HTTP ${putResp.status}): ${txt.slice(0, 200)}` }, 502);
+    let putResp: Response | null = null;
+    let putErrorText = "";
+    let successfulAttempt: string | null = null;
+
+    for (const attempt of uploadAttempts) {
+      const resp = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: attempt.headers,
+        body: pdfBytes.slice(),
+      });
+
+      if (resp.ok) {
+        putResp = resp;
+        successfulAttempt = attempt.name;
+        break;
+      }
+
+      const txt = await resp.text();
+      console.error(`Autentica PUT pdf error [${attempt.name}]:`, resp.status, txt.slice(0, 800));
+
+      if (resp.status !== 403 || !txt.includes("SignatureDoesNotMatch")) {
+        return json({ ok: false, error: `Falha ao subir PDF (HTTP ${resp.status}): ${txt.slice(0, 200)}` }, 502);
+      }
+
+      putResp = resp;
+      putErrorText = txt;
     }
-    console.info("autentica: PUT upload OK", putResp.status);
+
+    if (!putResp?.ok) {
+      return json({ ok: false, error: `Falha ao subir PDF (HTTP ${putResp?.status ?? 500}): ${putErrorText.slice(0, 200)}` }, 502);
+    }
+
+    console.info("autentica: PUT upload OK", { status: putResp.status, attempt: successfulAttempt });
 
     // ---------- 6) Cria pedido ----------
     const telefoneDigits = contrato.telefone.replace(/\D/g, "");
