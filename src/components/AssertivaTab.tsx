@@ -54,8 +54,10 @@ export function AssertivaTab() {
   };
 
   const suffix = (slug || "").toUpperCase();
+  const suffixLower = (slug || "").toLowerCase();
   const idSecretName = `ASSERTIVA_CLIENT_ID_${suffix || "<EMPRESA>"}`;
   const secretSecretName = `ASSERTIVA_CLIENT_SECRET_${suffix || "<EMPRESA>"}`;
+  const authTokenName = `ASSERTIVA_AUTH_TOKEN_${suffixLower || "<empresa>"}`;
 
   const copy = async (text: string, label: string) => {
     try {
@@ -178,22 +180,33 @@ export function AssertivaTab() {
           </div>
 
           <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-            <p className="text-sm font-medium">Para a empresa selecionada ({slug || "—"}), atualize estes dois secrets:</p>
+            <p className="text-sm font-medium">Para a empresa selecionada ({slug || "—"}), atualize estes secrets:</p>
 
             <div className="space-y-2">
               <SecretRow name={idSecretName} onCopy={() => copy(idSecretName, "Nome do secret")} />
               <SecretRow name={secretSecretName} onCopy={() => copy(secretSecretName, "Nome do secret")} />
+              <SecretRow name={authTokenName} onCopy={() => copy(authTokenName, "Nome do secret")} hint="Token Bearer pronto (opcional, sobrepõe Client ID/Secret)" />
             </div>
 
             <ol className="list-decimal pl-5 text-sm text-muted-foreground space-y-1">
-              <li>Pegue o <strong>Client ID</strong> e <strong>Client Secret</strong> em texto puro no painel da Assertiva (não use a string &quot;Basic ...&quot; codificada).</li>
-              <li>Abra o painel de secrets do backend e atualize os dois nomes acima.</li>
+              <li>No painel da Assertiva, copie o <strong>Client ID</strong> e <strong>Client Secret</strong> em texto puro (não use a string &quot;Basic ...&quot; codificada).</li>
+              <li>
+                Abra o painel de secrets do backend e atualize os valores.{" "}
+                <a
+                  href={`https://supabase.com/dashboard/project/${import.meta.env.VITE_SUPABASE_PROJECT_ID}/settings/functions`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-primary underline"
+                >
+                  Abrir painel de secrets <ExternalLink className="h-3 w-3" />
+                </a>
+              </li>
               <li>Aguarde alguns segundos para a propagação e clique em <strong>Testar geração de token</strong> acima.</li>
             </ol>
 
             <p className="text-xs text-muted-foreground">
-              Para abrir o painel de secrets: no editor do Lovable, clique em <strong>Cloud</strong> (barra lateral) →
-              aba <strong>Secrets</strong>. Lá você encontra os dois nomes acima e pode atualizar os valores.
+              Alternativa: se a Assertiva já te entregou um <strong>Bearer Token</strong> pronto (sem expiração curta), salve em
+              <code className="mx-1">{authTokenName}</code> e o sistema usará ele direto, ignorando Client ID/Secret.
             </p>
           </div>
         </CardContent>
@@ -202,13 +215,16 @@ export function AssertivaTab() {
   );
 }
 
-function SecretRow({ name, onCopy }: { name: string; onCopy: () => void }) {
+function SecretRow({ name, onCopy, hint }: { name: string; onCopy: () => void; hint?: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded border bg-card px-3 py-2">
-      <code className="text-xs sm:text-sm break-all">{name}</code>
-      <Button variant="ghost" size="sm" onClick={onCopy}>
-        <Copy className="h-4 w-4" />
-      </Button>
+    <div className="rounded border bg-card px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <code className="text-xs sm:text-sm break-all">{name}</code>
+        <Button variant="ghost" size="sm" onClick={onCopy}>
+          <Copy className="h-4 w-4" />
+        </Button>
+      </div>
+      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
