@@ -93,15 +93,15 @@ export function buildContractPdf(d: PdfData): jsPDF {
       continue;
     }
 
-    const cityDateMatch = rawLine.match(/^(.*?)([A-Za-zÀ-ÿ\s.-]+-[A-Z]{2}\s*,\s*\d{1,2}\s+de\s+[A-Za-zÀ-ÿ]+\s+de\s+\d{4})\s*$/);
+    const cityDateMatch = rawLine.match(/^(.*?)([A-Za-zÀ-ÿ\s.-]+-[A-Z]{2}\s*,?\s*\d{1,2}\s+de\s+[A-Za-zÀ-ÿ]+\s+de\s+\d{4})\s*$/);
     const spacedColumnsMatch = rawLine.match(/^(.*?)\s{3,}(.+)$/);
     const columnMatch = cityDateMatch
       ? [rawLine, cityDateMatch[1], cityDateMatch[2]]
       : spacedColumnsMatch;
 
     if (columnMatch) {
-      const leftText = columnMatch[1].trim();
-      const rightText = columnMatch[2].trim();
+      const leftText = String(columnMatch[1]).replace(/\s+/g, " ").trim();
+      const rightText = String(columnMatch[2]).replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
       const leftLines = leftText ? doc.splitTextToSize(leftText, leftColumnWidth) : [""];
       const rightLines = doc.splitTextToSize(rightText, rightColumnWidth);
       const totalLines = Math.max(leftLines.length, rightLines.length);

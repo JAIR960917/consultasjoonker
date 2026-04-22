@@ -497,15 +497,15 @@ function buildPdf(d: PdfInput): Uint8Array {
     const paragraph = rawLine.trim();
     if (!paragraph) { y += 8; continue; }
 
-    const cityDateMatch = rawLine.match(/^(.*?)([A-Za-zÀ-ÿ\s.-]+-[A-Z]{2}\s*,\s*\d{1,2}\s+de\s+[A-Za-zÀ-ÿ]+\s+de\s+\d{4})\s*$/);
+    const cityDateMatch = rawLine.match(/^(.*?)([A-Za-zÀ-ÿ\s.-]+-[A-Z]{2}\s*,?\s*\d{1,2}\s+de\s+[A-Za-zÀ-ÿ]+\s+de\s+\d{4})\s*$/);
     const spacedColumnsMatch = rawLine.match(/^(.*?)\s{3,}(.+)$/);
     const columnMatch = cityDateMatch
       ? [rawLine, cityDateMatch[1], cityDateMatch[2]]
       : spacedColumnsMatch;
 
     if (columnMatch) {
-      const leftText = String(columnMatch[1]).trim();
-      const rightText = String(columnMatch[2]).trim();
+      const leftText = String(columnMatch[1]).replace(/\s+/g, " ").trim();
+      const rightText = String(columnMatch[2]).replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
 
       // Reduz a fonte para 10pt para garantir que nome (esquerda) e
       // cidade/data (direita) caibam na MESMA linha, como na tela web.
