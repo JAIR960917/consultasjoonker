@@ -1,8 +1,6 @@
 // Edge Function: assertiva-autentica-diag
 // Diagnóstico do produto Assertiva Autentica.
-// Lista fluxos ativos e perfis de assinatura disponíveis para a empresa.
-//
-// Body: { empresa_slug?: string }  (opcional — usa secrets globais se não passar)
+// Testa múltiplas combinações de endpoint/grant_type e devolve o resultado bruto.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -30,8 +28,6 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
 
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-    // Apenas admins
     const { data: roleRow } = await admin
       .from("user_roles").select("role")
       .eq("user_id", userId).eq("role", "admin").maybeSingle();
@@ -49,75 +45,56 @@ Deno.serve(async (req) => {
     if (!clientId || !clientSecret) {
       return json({
         ok: false,
-        error: `Credenciais não encontradas. Verifique ASSERTIVA_CLIENT_ID${suffix} e ASSERTIVA_CLIENT_SECRET${suffix}.`,
+        error: `Credenciais não encontradas (suffix=${suffix}).`,
       }, 400);
     }
 
-    // 1) Token (Autentica usa /v3/token, NÃO /oauth2/v3/token)
-    const tokenResp = await fetch(`${ASSERTIVA_BASE}/v3/token`, {
-      method: "POST",
-      headers: {
-        Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: "grant_type=client_credentials",
-    });
-    const tokenText = await tokenResp.text();
-    let tokenJson: any = null;
-    try { tokenJson = JSON.parse(tokenText); } catch {}
+    const safeId = `${clientId.slice(0, 4)}...${clientId.slice(-4)} (len=${clientId.length})`;
+    const basic = "Basic " + btoa(`${clientId}:${clientSecret}`);
 
-    if (!tokenResp.ok || !tokenJson?.access_token) {
-      return json({
-        ok: false,
-        step: "token",
-        http_status: tokenResp.status,
-        body: tokenText.slice(0, 800),
-        hint: "Se 401: verifique client_id/secret. Se 403: as credenciais não têm acesso ao Autentica.",
-      }, 200);
+    // Testa várias variações
+    const attempts: any[] = [];
+    const variants = [
+      { url: `${ASSERTIVA_BASE}/oauth2/v3/token`, body: "grant_type=client_credentials", auth: "basic" },
+      { url: `${ASSERTIVA_BASE}/oauth2/v3/token`, body: `grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`, auth: "body" },
+      { url: `${ASSERTIVA_BASE}/v3/token`, body: "grant_type=client_credentials", auth: "basic" },
+    ];
+
+    for (const v of variants) {
+      try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        };
+        if (v.auth === "basic") headers.Authorization = basic;
+
+        const r = await fetch(v.url, { method: "POST", headers, body: v.body });
+        const txt = await r.text();
+        let parsed: any = null;
+        try { parsed = JSON.parse(txt); } catch {}
+        attempts.push({
+          url: v.url,
+          auth_mode: v.auth,
+          http_status: r.status,
+          ok: r.ok,
+          response_headers: Object.fromEntries(r.headers.entries()),
+          response_body: parsed ?? txt.slice(0, 1000),
+          access_token_present: !!parsed?.access_token,
+        });
+      } catch (e) {
+        attempts.push({ url: v.url, auth_mode: v.auth, error: String(e) });
+      }
     }
-    const bearer = tokenJson.access_token as string;
-
-    // 2) Fluxos ativos
-    const fluxosResp = await fetch(`${ASSERTIVA_BASE}/v1/jornadas/fluxos/ativos`, {
-      headers: { Authorization: `Bearer ${bearer}`, Accept: "application/json" },
-    });
-    const fluxosText = await fluxosResp.text();
-    let fluxosJson: any = null;
-    try { fluxosJson = JSON.parse(fluxosText); } catch {}
-
-    // 3) Perfis de assinatura
-    const perfisResp = await fetch(`${ASSERTIVA_BASE}/v1/jornadas/perfis-assinatura`, {
-      headers: { Authorization: `Bearer ${bearer}`, Accept: "application/json" },
-    });
-    const perfisText = await perfisResp.text();
-    let perfisJson: any = null;
-    try { perfisJson = JSON.parse(perfisText); } catch {}
 
     return json({
       ok: true,
       empresa_slug: slug,
-      auth: { ok: true, expires_in: tokenJson.expires_in },
-      fluxos: {
-        http_status: fluxosResp.status,
-        ok: fluxosResp.ok,
-        data: fluxosJson ?? fluxosText.slice(0, 500),
-      },
-      perfis_assinatura: {
-        http_status: perfisResp.status,
-        ok: perfisResp.ok,
-        data: perfisJson ?? perfisText.slice(0, 500),
-      },
-      diagnostico: {
-        autentica_ativo: fluxosResp.ok && perfisResp.ok,
-        observacao:
-          fluxosResp.status === 403 || perfisResp.status === 403
-            ? "403 nos endpoints de jornadas — plano Autentica não inclui o módulo de Jornadas. Contate suporte Assertiva."
-            : (Array.isArray(fluxosJson?.resposta) && fluxosJson.resposta.length === 0) ||
-              (Array.isArray(fluxosJson) && fluxosJson.length === 0)
-            ? "Sem fluxos cadastrados — peça ao suporte Assertiva para criar um fluxo de Assinatura via WhatsApp."
-            : "OK — copie os UUIDs de fluxoId e perfilId.",
-      },
+      secret_suffix: suffix,
+      client_id_preview: safeId,
+      attempts,
+      diagnostico: attempts.some((a) => a.access_token_present)
+        ? "✅ Pelo menos uma variação funcionou — copie a URL/auth dessa attempt"
+        : "❌ Todas as variações retornaram erro. Encaminhe esse JSON inteiro para o suporte da Assertiva.",
     });
   } catch (err) {
     console.error("assertiva-autentica-diag error", err);
