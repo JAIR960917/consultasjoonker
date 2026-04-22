@@ -218,12 +218,14 @@ Deno.serve(async (req) => {
       console.error("Autentica upload-link error:", uploadLinkResp.status, uploadLinkText.slice(0, 500));
       return json({ ok: false, error: `Falha ao obter link de upload (HTTP ${uploadLinkResp.status})`, detail: uploadLinkJson ?? uploadLinkText.slice(0, 300) }, 502);
     }
+    console.info("autentica: upload-link raw response", uploadLinkText.slice(0, 1500));
+    const ulData = uploadLinkJson?.data ?? uploadLinkJson;
     const uploadUrl: string | null =
-      uploadLinkJson?.url ?? uploadLinkJson?.link ?? uploadLinkJson?.data?.url ?? null;
+      ulData?.url ?? ulData?.link ?? ulData?.linkUpload ?? ulData?.uploadUrl ?? ulData?.urlUpload ?? null;
     const arquivoId: string | null =
-      uploadLinkJson?.id ?? uploadLinkJson?.arquivoId ?? uploadLinkJson?.data?.id ?? uploadLinkJson?.identificador ?? null;
+      ulData?.id ?? ulData?.arquivoId ?? ulData?.identificador ?? ulData?.idArquivo ?? ulData?.fileId ?? null;
     if (!uploadUrl || !arquivoId) {
-      return json({ ok: false, error: "Resposta do link de upload inesperada", detail: uploadLinkJson }, 502);
+      return json({ ok: false, error: "Resposta do link de upload inesperada", detail: uploadLinkJson ?? uploadLinkText.slice(0, 500) }, 502);
     }
 
     const putResp = await fetch(uploadUrl, {
