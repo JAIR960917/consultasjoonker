@@ -226,10 +226,13 @@ Deno.serve(async (req) => {
     }
     console.info("autentica: upload-link raw response", uploadLinkText.slice(0, 1500));
     const ulData = uploadLinkJson?.data ?? uploadLinkJson;
+    const ulFirst = Array.isArray(ulData?.links) ? ulData.links[0]
+      : Array.isArray(ulData?.items) ? ulData.items[0]
+      : ulData;
     const uploadUrl: string | null =
-      ulData?.url ?? ulData?.link ?? ulData?.linkUpload ?? ulData?.uploadUrl ?? ulData?.urlUpload ?? null;
+      ulFirst?.url ?? ulFirst?.link ?? ulFirst?.linkUpload ?? ulFirst?.uploadUrl ?? ulFirst?.urlUpload ?? null;
     const arquivoId: string | null =
-      ulData?.id ?? ulData?.arquivoId ?? ulData?.identificador ?? ulData?.idArquivo ?? ulData?.fileId ?? null;
+      ulFirst?.chave ?? ulFirst?.id ?? ulFirst?.arquivoId ?? ulFirst?.identificador ?? ulFirst?.idArquivo ?? ulFirst?.fileId ?? null;
     if (!uploadUrl || !arquivoId) {
       return json({ ok: false, error: "Resposta do link de upload inesperada", detail: uploadLinkJson ?? uploadLinkText.slice(0, 500) }, 502);
     }
