@@ -357,8 +357,23 @@ export default function Contrato() {
               )}
             </div>
 
-            <article className="whitespace-pre-wrap text-sm leading-7">
-              {c.content}
+            <article className="text-sm leading-7 break-words">
+              {c.content.split("\n").map((line, i) => {
+                // Detecta "colunas" criadas com 4+ espaços consecutivos no template
+                // (ex.: "Emitente: NOME            CIDADE, DATA") e renderiza
+                // como flex para evitar quebras feias em telas estreitas.
+                const m = line.match(/^(.*?\S)\s{4,}(\S.*)$/);
+                if (m) {
+                  return (
+                    <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                      <span>{m[1]}</span>
+                      <span className="text-right">{m[2]}</span>
+                    </div>
+                  );
+                }
+                if (line.trim() === "") return <div key={i} className="h-3" />;
+                return <p key={i}>{line}</p>;
+              })}
             </article>
 
             <div className="mt-12 flex justify-center">
