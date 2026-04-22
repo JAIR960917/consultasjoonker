@@ -148,7 +148,14 @@ Deno.serve(async (req) => {
     console.info("autentica: fluxos raw response", fluxosText.slice(0, 1500));
     const fluxos: any[] = Array.isArray(fluxosJson)
       ? fluxosJson
-      : (fluxosJson?.data ?? fluxosJson?.fluxos ?? fluxosJson?.items ?? fluxosJson?.content ?? fluxosJson?.resultado ?? []);
+      : (fluxosJson?.data?.jornadas
+        ?? fluxosJson?.jornadas
+        ?? fluxosJson?.data
+        ?? fluxosJson?.fluxos
+        ?? fluxosJson?.items
+        ?? fluxosJson?.content
+        ?? fluxosJson?.resultado
+        ?? []);
     if (!fluxos.length) {
       return json({
         ok: false,
@@ -156,7 +163,8 @@ Deno.serve(async (req) => {
         detail: fluxosJson ?? fluxosText.slice(0, 500),
       }, 400);
     }
-    const fluxo = fluxos[0];
+    // Prefere fluxo com proposta (necessário para anexar PDF do contrato)
+    const fluxo = fluxos.find((f: any) => f?.possuiProposta) ?? fluxos[0];
     const fluxoId = fluxo?.id ?? fluxo?.fluxoId ?? fluxo?.codigo;
     if (!fluxoId) {
       return json({ ok: false, error: "Não foi possível identificar o ID do fluxo retornado", detail: fluxo }, 502);
