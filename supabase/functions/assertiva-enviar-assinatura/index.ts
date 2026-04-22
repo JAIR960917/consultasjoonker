@@ -488,8 +488,8 @@ function buildPdf(d: PdfInput): Uint8Array {
 
   const rawLines = d.content.split("\n");
   const lineHeight = 16;
-  const rightColumnWidth = 280;
-  const gapBetweenColumns = 24;
+  const rightColumnWidth = 200;
+  const gapBetweenColumns = 16;
   const leftColumnWidth = usableWidth - rightColumnWidth - gapBetweenColumns;
   let y = margin + 50;
 
@@ -506,6 +506,10 @@ function buildPdf(d: PdfInput): Uint8Array {
     if (columnMatch) {
       const leftText = String(columnMatch[1]).trim();
       const rightText = String(columnMatch[2]).trim();
+
+      // Reduz a fonte para 10pt para garantir que nome (esquerda) e
+      // cidade/data (direita) caibam na MESMA linha, como na tela web.
+      doc.setFontSize(10);
       const leftLines = leftText ? doc.splitTextToSize(leftText, leftColumnWidth) : [""];
       const rightLines = doc.splitTextToSize(rightText, rightColumnWidth);
       const totalLines = Math.max(leftLines.length, rightLines.length);
@@ -518,6 +522,7 @@ function buildPdf(d: PdfInput): Uint8Array {
         if (rightLine) doc.text(rightLine, pageWidth - margin, y, { align: "right" });
         y += lineHeight;
       }
+      doc.setFontSize(11);
       continue;
     }
 
