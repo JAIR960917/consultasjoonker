@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
     }
 
     // ---------- 3) Perfil de assinatura ----------
-    const perfisResp = await authedFetch(`/v1/jornadas/perfis-assinatura`);
+    const perfisResp = await authedFetch(`/v1/jornadas/perfis-assinatura?index=1&size=50`);
     const perfisText = await perfisResp.text();
     const perfisJson = safeJson(perfisText);
     if (!perfisResp.ok) {
