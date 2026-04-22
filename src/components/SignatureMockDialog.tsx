@@ -66,6 +66,15 @@ export function SignatureMockDialog({ open, onOpenChange, signatureUrl, status, 
                   <QRCodeSVG value={signatureUrl} size={220} level="M" includeMargin />
                 </div>
 
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-foreground">Link de assinatura</p>
+                  <div className="rounded-md border bg-muted/40 p-2.5">
+                    <p className="text-xs text-foreground break-all font-mono leading-relaxed">
+                      {signatureUrl}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
                   <Button variant="outline" className="flex-1" onClick={copy}>
                     {copied ? <CheckCircle2 className="mr-2 h-4 w-4 text-success" /> : <Copy className="mr-2 h-4 w-4" />}
@@ -76,6 +85,12 @@ export function SignatureMockDialog({ open, onOpenChange, signatureUrl, status, 
                   </Button>
                 </div>
               </>
+            )}
+
+            {!hasUrl && (
+              <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs text-muted-foreground">
+                O link de assinatura ainda não foi retornado pelo provedor. Clique em "Sincronizar status" na tela do contrato para tentar novamente.
+              </div>
             )}
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
