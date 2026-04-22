@@ -249,6 +249,80 @@ export function AssertivaTab() {
           </div>
         </CardContent>
       </Card>
+
+      <Card className="shadow-card">
+        <CardContent className="p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Webhook className="h-5 w-5" />
+              Webhook de notificação
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Cadastra na Assertiva o endpoint que recebe o status dos pedidos de assinatura.
+              A URL é montada automaticamente para a empresa selecionada.
+            </p>
+          </div>
+
+          <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
+            <p className="text-muted-foreground">URL que será cadastrada:</p>
+            <code className="block break-all">
+              {import.meta.env.VITE_SUPABASE_URL}/functions/v1/assertiva-webhook?slug={slug || "<empresa>"}
+            </code>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => callWebhook("register")} disabled={whLoading || !slug} className="bg-gradient-primary">
+              {whLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Webhook className="mr-2 h-4 w-4" />}
+              Registrar / atualizar webhook
+            </Button>
+            <Button variant="outline" onClick={() => callWebhook("list")} disabled={whLoading || !slug}>
+              {whLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Listar webhooks cadastrados
+            </Button>
+          </div>
+
+          {Array.isArray(whList) && whList.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Webhooks cadastrados na Assertiva ({whList.length})</p>
+              {whList.map((w: any) => (
+                <div key={w.id} className="rounded border bg-card p-3 text-xs space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {w.ativo ? (
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <code className="break-all">{w?.configuracao?.url ?? "—"}</code>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => callWebhook("delete", w.id)}
+                      disabled={whLoading}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <p className="text-muted-foreground">id: {w.id}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {Array.isArray(whList) && whList.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum webhook cadastrado ainda nesta empresa.</p>
+          )}
+
+          {whResult && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground">Ver resposta completa</summary>
+              <pre className="mt-2 overflow-x-auto rounded bg-muted/50 p-2">
+                {JSON.stringify(whResult, null, 2)}
+              </pre>
+            </details>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
