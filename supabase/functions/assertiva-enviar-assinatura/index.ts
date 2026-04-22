@@ -488,8 +488,8 @@ function buildPdf(d: PdfInput): Uint8Array {
 
   const rawLines = d.content.split("\n");
   const lineHeight = 16;
-  const rightColumnWidth = 280;
-  const gapBetweenColumns = 24;
+  const rightColumnWidth = 200;
+  const gapBetweenColumns = 16;
   const leftColumnWidth = usableWidth - rightColumnWidth - gapBetweenColumns;
   let y = margin + 50;
 
