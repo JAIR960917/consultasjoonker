@@ -42,33 +42,56 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Tenta extrair id externo e status do documento (varia por versão da Assertiva)
-    const externalId = payload?.id ?? payload?.documento?.id ?? payload?.data?.id ?? null;
-    const status = (payload?.status ?? payload?.documento?.status ?? payload?.evento ?? "").toString().toUpperCase();
+    // Payload novo (Assertiva Autentica):
+    // { evento, eventoId, dados: { entidade: "PARTE"|"PEDIDO", status, id, protocolo } }
+    // Payload antigo (Assertiva Assinaturas) ainda suportado abaixo.
+    const dados = payload?.dados ?? null;
+    const entidade = String(dados?.entidade ?? "").toUpperCase();
+    const statusAutentica = String(dados?.status ?? "").toUpperCase();
+    const idAutentica = dados?.id ? String(dados.id) : null;
+    const protocoloAutentica = dados?.protocolo ? String(dados.protocolo) : null;
+
+    const externalIdLegacy = payload?.id ?? payload?.documento?.id ?? payload?.data?.id ?? null;
+    const statusLegacy = (payload?.status ?? payload?.documento?.status ?? payload?.evento ?? "").toString().toUpperCase();
+
+    const externalId = idAutentica ?? (externalIdLegacy ? String(externalIdLegacy) : null);
+    const status = statusAutentica || statusLegacy;
 
     if (!externalId) {
-      console.warn("Webhook Assertiva sem id de documento", payload);
+      console.warn("Webhook Assertiva sem id", payload);
       return json({ ok: true, ignored: true, reason: "sem id" });
     }
 
-    // Busca contrato pelo external id
-    const { data: contrato } = await admin
-      .from("contracts")
-      .select("id, status")
-      .eq("signature_external_id", String(externalId))
-      .maybeSingle();
+    // Busca por id externo ou por protocolo (alguns eventos retornam só protocolo)
+    let contrato: { id: string; status: string } | null = null;
+    {
+      const { data } = await admin
+        .from("contracts")
+        .select("id, status")
+        .eq("signature_external_id", externalId)
+        .maybeSingle();
+      contrato = data ?? null;
+    }
+    if (!contrato && protocoloAutentica) {
+      const { data } = await admin
+        .from("contracts")
+        .select("id, status")
+        .eq("signature_external_id", protocoloAutentica)
+        .maybeSingle();
+      contrato = data ?? null;
+    }
 
     if (!contrato) {
-      console.warn("Contrato não encontrado para external_id", externalId);
+      console.warn("Contrato não encontrado para external_id", externalId, "protocolo", protocoloAutentica);
       return json({ ok: true, ignored: true, reason: "contrato não encontrado" });
     }
 
-    // Determina se foi assinado
-    const assinado = ["FINALIZADO", "ASSINADO", "CONCLUIDO", "COMPLETED", "SIGNED"].some(
-      (s) => status.includes(s),
-    );
+    // Sucesso quando entidade=PARTE/PEDIDO finaliza, ou quando legacy reporta assinado
+    const sucesso =
+      (entidade && ["FINALIZADO", "APROVADO", "COLETADO"].some((s) => statusAutentica.includes(s))) ||
+      ["FINALIZADO", "ASSINADO", "CONCLUIDO", "COMPLETED", "SIGNED", "APROVADO"].some((s) => statusLegacy.includes(s));
 
-    if (assinado) {
+    if (sucesso) {
       await admin.from("contracts").update({
         status: "assinado",
         signed_at: new Date().toISOString(),
@@ -77,11 +100,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, contrato_id: contrato.id, status: "assinado" });
     }
 
-    // Caso seja outro evento (visualizado, recusado, etc.) só guardamos o payload
-    await admin.from("contracts").update({
-      signature_data: payload,
-    }).eq("id", contrato.id);
-
+    await admin.from("contracts").update({ signature_data: payload }).eq("id", contrato.id);
     return json({ ok: true, contrato_id: contrato.id, evento: status });
   } catch (err) {
     console.error("assertiva-webhook error", err);
