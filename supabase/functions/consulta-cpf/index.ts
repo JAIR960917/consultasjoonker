@@ -164,6 +164,19 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
   const pendencias = extrairPendencias(json);
   const somaPendencias = pendencias.reduce((acc, p) => acc + (p.valor || 0), 0);
 
+  // Normaliza data de nascimento para formato YYYY-MM-DD
+  let dataNascimento: string | null = null;
+  if (dataNascRaw && typeof dataNascRaw === "string") {
+    const s = dataNascRaw.trim();
+    // Aceita formatos: YYYY-MM-DD, DD/MM/YYYY, ISO
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      dataNascimento = s.substring(0, 10);
+    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+      const [d, m, y] = s.split("/");
+      dataNascimento = `${y}-${m}-${d}`;
+    }
+  }
+
   return {
     nome: String(nome),
     score,
@@ -171,6 +184,7 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
     totalPendencias: pendencias.length,
     somaPendencias,
     raw: json,
+    dataNascimento,
   };
 }
 
