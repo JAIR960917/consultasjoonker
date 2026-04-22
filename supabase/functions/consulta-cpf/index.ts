@@ -129,6 +129,15 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
     pickPath(json, ["data", "name"]) ??
     "Cliente";
 
+  // Data de nascimento — tenta vários caminhos
+  const dataNascRaw =
+    pickPath(json, ["registrationData", "birthDate"]) ??
+    pickPath(json, ["registration", "birthDate"]) ??
+    pickPath(json, ["consumer", "birthDate"]) ??
+    pickPath(json, ["personRegistrationData", "birthDate"]) ??
+    pickPath(json, ["data", "birthDate"]) ??
+    null;
+
   // Score — Básico PF normalmente devolve em scoreCH/scoreModels com modelo HLRD
   const scoreRaw =
     pickPath(json, ["scoreCH", "score"]) ??
