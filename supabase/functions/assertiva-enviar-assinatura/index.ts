@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
 
     const { data: contrato, error: contratoErr } = await admin
       .from("contracts")
-      .select("id, user_id, nome, cpf, telefone, content, empresa_id, status")
+      .select("id, user_id, nome, cpf, telefone, content, empresa_id, venda_id, status")
       .eq("id", body.contrato_id)
       .maybeSingle();
     if (contratoErr || !contrato) return json({ ok: false, error: "Contrato não encontrado" }, 404);
@@ -63,10 +63,18 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Contrato sem telefone para envio via WhatsApp" }, 400);
     }
 
+    // Resolve empresa: primeiro pelo contrato, depois pela venda associada
+    let empresaId: string | null = contrato.empresa_id ?? null;
+    if (!empresaId && contrato.venda_id) {
+      const { data: venda } = await admin
+        .from("vendas").select("empresa_id").eq("id", contrato.venda_id).maybeSingle();
+      empresaId = venda?.empresa_id ?? null;
+    }
+
     let empresaSlug: string | null = null;
-    if (contrato.empresa_id) {
+    if (empresaId) {
       const { data: emp } = await admin
-        .from("empresas").select("slug, ativo").eq("id", contrato.empresa_id).maybeSingle();
+        .from("empresas").select("slug, ativo").eq("id", empresaId).maybeSingle();
       if (emp) {
         if (!emp.ativo) return json({ ok: false, error: "Empresa inativa" }, 400);
         empresaSlug = emp.slug;
