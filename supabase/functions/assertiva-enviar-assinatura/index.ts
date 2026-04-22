@@ -237,25 +237,28 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Resposta do link de upload inesperada", detail: uploadLinkJson ?? uploadLinkText.slice(0, 500) }, 502);
     }
 
-    // S3 pre-signed URL (SigV2) inclui x-amz-security-token na query string,
-    // mas o StringToSign do S3 também o espera como header HTTP — então enviamos ambos.
-    const putHeaders: Record<string, string> = { "Content-Type": "application/pdf" };
-    try {
-      const u = new URL(uploadUrl);
-      const tok = u.searchParams.get("x-amz-security-token");
-      if (tok) putHeaders["x-amz-security-token"] = tok;
-    } catch (_) { /* noop */ }
+    // S3 pre-signed URL (SigV2): a query já contém AWSAccessKeyId, Signature,
+    // Expires e x-amz-security-token. Enviar o token como header também causou
+    // SignatureDoesNotMatch — vamos enviar APENAS Content-Type, conforme o
+    // StringToSign retornado pelo S3 (PUT \n \n application/pdf \n <expires> \n x-amz-security-token).
+    console.info("autentica: PUT upload", {
+      host: new URL(uploadUrl).host,
+      path: new URL(uploadUrl).pathname,
+      hasTokenInQuery: uploadUrl.includes("x-amz-security-token"),
+      bytes: pdfBytes.byteLength,
+    });
 
     const putResp = await fetch(uploadUrl, {
       method: "PUT",
-      headers: putHeaders,
+      headers: { "Content-Type": "application/pdf" },
       body: pdfBytes,
     });
     if (!putResp.ok) {
       const txt = await putResp.text();
-      console.error("Autentica PUT pdf error:", putResp.status, txt.slice(0, 500));
-      return json({ ok: false, error: `Falha ao subir PDF (HTTP ${putResp.status})` }, 502);
+      console.error("Autentica PUT pdf error:", putResp.status, txt.slice(0, 800));
+      return json({ ok: false, error: `Falha ao subir PDF (HTTP ${putResp.status}): ${txt.slice(0, 200)}` }, 502);
     }
+    console.info("autentica: PUT upload OK", putResp.status);
 
     // ---------- 6) Cria pedido ----------
     const telefoneDigits = contrato.telefone.replace(/\D/g, "");
