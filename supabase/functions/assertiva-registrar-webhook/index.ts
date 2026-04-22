@@ -157,15 +157,31 @@ Deno.serve(async (req) => {
 
     const opText = await opResp.text();
     const opJson = safeJson(opText);
+
+    // Caso idempotente: a Assertiva responde 400 quando já existe webhook com a mesma URL.
+    // Tratamos como sucesso (já está configurado).
+    const messages: string[] = Array.isArray(opJson?.messages) ? opJson.messages : [];
+    const jaExiste = opResp.status === 400 &&
+      messages.some((m) => typeof m === "string" && m.toLowerCase().includes("já existe"));
+    if (jaExiste) {
+      return json({
+        ok: true,
+        mode: "already_exists",
+        receptor_url: receptorUrl,
+        message: messages[0] ?? "Webhook já configurado para esta URL.",
+        detail: opJson,
+      });
+    }
+
     if (!opResp.ok) {
       console.error("Assertiva webhook op error", opResp.status, opText.slice(0, 500));
       return json({
         ok: false,
         mode,
         http_status: opResp.status,
-        error: opJson?.message || opJson?.error || `HTTP ${opResp.status}`,
+        error: opJson?.message || opJson?.error || messages[0] || `HTTP ${opResp.status}`,
         detail: opJson ?? opText.slice(0, 500),
-      }, 502);
+      }, 200);
     }
 
     return json({
