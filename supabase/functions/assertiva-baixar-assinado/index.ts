@@ -1,8 +1,8 @@
 // Edge Function: assertiva-baixar-assinado
 // Busca o PDF do contrato assinado na Assertiva Autentica e devolve em base64 para download.
 // Tenta vários endpoints conhecidos da API e, se possível, salva a URL/base64 em signature_data.
-//
 // Body: { contrato_id: string }
+// v2
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
