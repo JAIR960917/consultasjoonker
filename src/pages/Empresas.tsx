@@ -116,9 +116,10 @@ export default function Empresas() {
       return;
     }
 
-    const { error } = editing
-      ? await supabase.from("empresas").update(payload).eq("id", editing.id)
-      : await supabase.from("empresas").insert(payload);
+    const isCreating = !editing;
+    const { data, error } = editing
+      ? await supabase.from("empresas").update(payload).eq("id", editing.id).select().single()
+      : await supabase.from("empresas").insert(payload).select().single();
 
     setSaving(false);
     if (error) {
@@ -127,7 +128,12 @@ export default function Empresas() {
     }
     toast.success(editing ? "Empresa atualizada" : "Empresa criada");
     setDialogOpen(false);
-    load();
+    await load();
+
+    // Após criar nova empresa, abre o modal de credenciais automaticamente
+    if (isCreating && data) {
+      setCredEmpresa(data as Empresa);
+    }
   };
 
   const remover = async (id: string) => {
@@ -323,19 +329,29 @@ export default function Empresas() {
 
       {/* Diálogo de credenciais por empresa */}
       <Dialog open={!!credEmpresa} onOpenChange={(o) => !o && setCredEmpresa(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Credenciais — {credEmpresa?.nome}</DialogTitle>
             <DialogDescription>
-              Os valores destes 5 secrets ficam armazenados no cofre do Lovable Cloud.
-              Peça ao desenvolvedor para cadastrá-los (ou abrir o formulário seguro) usando exatamente os nomes abaixo.
+              As chaves reais (Client ID, Certificate, Private Key) ficam guardadas no
+              <strong> cofre seguro do Lovable Cloud</strong> — não no app. Copie os nomes abaixo
+              e peça ao desenvolvedor (ou na própria conversa do Lovable) para cadastrá-los.
             </DialogDescription>
           </DialogHeader>
 
           {credEmpresa && (
             <div className="space-y-4 text-sm">
+              <div className="rounded-md border-2 border-primary/40 bg-primary/5 p-3">
+                <p className="font-semibold text-foreground mb-1">📋 Como cadastrar:</p>
+                <ol className="ml-4 list-decimal space-y-0.5 text-xs text-muted-foreground">
+                  <li>Copie cada nome abaixo (botão <Copy className="inline h-3 w-3" />)</li>
+                  <li>Diga no chat: <em>"cadastrar secrets do Cora para empresa {credEmpresa.slug}"</em></li>
+                  <li>O Lovable abrirá um formulário seguro para você colar os valores</li>
+                </ol>
+              </div>
+
               <div>
-                <p className="mb-1.5 font-medium">Cora (boletos/PIX)</p>
+                <p className="mb-1.5 font-medium">🏦 Cora (boletos/PIX) — obrigatório</p>
                 <div className="space-y-1.5">
                   {[
                     `CORA_CLIENT_ID_${credEmpresa.slug}`,
@@ -348,7 +364,11 @@ export default function Empresas() {
               </div>
 
               <div>
-                <p className="mb-1.5 font-medium">Assertiva (assinatura)</p>
+                <p className="mb-1.5 font-medium">✍️ Assertiva (assinatura) — opcional</p>
+                <p className="mb-1.5 text-xs text-muted-foreground">
+                  Só cadastre se esta empresa tiver conta Assertiva separada. Caso contrário,
+                  o sistema usa as credenciais globais já configuradas.
+                </p>
                 <div className="space-y-1.5">
                   {[
                     `ASSERTIVA_CLIENT_ID_${credEmpresa.slug}`,
@@ -361,9 +381,9 @@ export default function Empresas() {
               </div>
 
               <div>
-                <p className="mb-1.5 font-medium">URL do webhook Assertiva</p>
+                <p className="mb-1.5 font-medium">🔗 URL do webhook Assertiva</p>
                 <p className="mb-1.5 text-xs text-muted-foreground">
-                  Configure esta URL no painel da Assertiva desta empresa:
+                  Só relevante se você cadastrar credenciais Assertiva próprias acima.
                 </p>
                 <SecretRow
                   value={`${SUPABASE_URL}/functions/v1/assertiva-webhook?slug=${credEmpresa.slug}`}
@@ -374,8 +394,7 @@ export default function Empresas() {
 
               <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
                 <p>
-                  Se algum secret não for cadastrado, o sistema usará as credenciais globais como fallback
-                  (<code>CORA_CLIENT_ID</code>, <code>ASSERTIVA_AUTH_TOKEN</code>, etc).
+                  <strong>Serasa</strong> é sempre global — não precisa cadastrar por empresa.
                 </p>
               </div>
             </div>
