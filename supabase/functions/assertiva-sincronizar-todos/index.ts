@@ -30,28 +30,6 @@ Deno.serve(async (req) => {
     if (error) return json({ ok: false, error: error.message }, 500);
     if (!contratos?.length) return json({ ok: true, processados: 0, atualizados: 0 });
 
-    const clientId = Deno.env.get("ASSERTIVA_CLIENT_ID");
-    const clientSecret = Deno.env.get("ASSERTIVA_CLIENT_SECRET");
-    if (!clientId || !clientSecret) {
-      return json({ ok: false, error: "Credenciais Assertiva não configuradas" }, 500);
-    }
-
-    // OAuth2
-    const tokenResp = await fetch(`${ASSERTIVA_BASE}/oauth2/v3/token`, {
-      method: "POST",
-      headers: {
-        Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: "grant_type=client_credentials",
-    });
-    const tokenJson = await tokenResp.json().catch(() => ({}));
-    if (!tokenResp.ok || !tokenJson?.access_token) {
-      return json({ ok: false, error: "Falha ao obter token Assertiva", detail: tokenJson }, 502);
-    }
-    const bearer = tokenJson.access_token as string;
-
     const finalizadoTokens = ["FINALIZADO", "APROVADO", "COLETADO", "CONCLUIDO", "ASSINADO", "COMPLETED", "SIGNED"];
     let atualizados = 0;
     let erros = 0;
@@ -61,9 +39,46 @@ Deno.serve(async (req) => {
       const pedidoId = sigData?.data?.pedidoId ?? sigData?.pedidoId ?? sigData?.data?.id ?? null;
       if (!pedidoId) continue;
 
+      const empresaSlug = String(sigData?.empresa_slug ?? sigData?.empresaSlug ?? "").toUpperCase();
+      const suffix = empresaSlug ? `_${empresaSlug}` : "";
+      const authTokenSuffix = empresaSlug ? `_${empresaSlug.toLowerCase()}` : "";
+      let authHeaderValue =
+        Deno.env.get(`ASSERTIVA_AUTH_TOKEN${authTokenSuffix}`) ??
+        Deno.env.get(`ASSERTIVA_AUTH_TOKEN${suffix}`) ??
+        Deno.env.get("ASSERTIVA_AUTH_TOKEN") ?? "";
+
+      if (!authHeaderValue) {
+        const clientId = Deno.env.get(`ASSERTIVA_CLIENT_ID${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_ID");
+        const clientSecret = Deno.env.get(`ASSERTIVA_CLIENT_SECRET${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_SECRET");
+        if (!clientId || !clientSecret) {
+          erros++;
+          console.error(`credenciais ausentes para contrato ${contrato.id} (${empresaSlug || "global"})`);
+          continue;
+        }
+
+        const tokenResp = await fetch(`${ASSERTIVA_BASE}/oauth2/v3/token`, {
+          method: "POST",
+          headers: {
+            Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+          },
+          body: "grant_type=client_credentials",
+        });
+        const tokenJson = await tokenResp.json().catch(() => ({}));
+        if (!tokenResp.ok || !tokenJson?.access_token) {
+          erros++;
+          console.error(`falha auth assertiva para contrato ${contrato.id}`, tokenJson);
+          continue;
+        }
+        authHeaderValue = `Bearer ${tokenJson.access_token as string}`;
+      } else if (!/^[A-Za-z]+\s+.+$/.test(authHeaderValue)) {
+        authHeaderValue = `Bearer ${authHeaderValue}`;
+      }
+
       try {
         const r = await fetch(`${AUTH_BASE}/v1/jornadas/pedidos/${pedidoId}`, {
-          headers: { Authorization: `Bearer ${bearer}`, Accept: "application/json" },
+          headers: { Authorization: authHeaderValue, Accept: "application/json" },
         });
         if (!r.ok) {
           erros++;
