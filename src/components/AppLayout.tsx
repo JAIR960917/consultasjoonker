@@ -6,7 +6,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
-  LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet, FileSignature, Sun, Moon, Menu, Building2, BarChart3, Database,
+  LayoutDashboard, Search, History, Settings, Users, LogOut, Wallet, FileSignature, Sun, Moon, Menu, Building2, BarChart3, Database, ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
