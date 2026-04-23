@@ -442,7 +442,11 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    const code = (e as Error & { code?: string })?.code;
     console.error("consulta-cpf error:", msg);
+    if (code === "DOCUMENT_NOT_FOUND") {
+      return jsonResp({ error: msg, notFound: true }, 200);
+    }
     return jsonResp({ error: msg }, 500);
   }
 });
