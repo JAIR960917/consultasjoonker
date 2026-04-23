@@ -62,10 +62,12 @@ export function RelatoriosDiariosCard() {
       toast.error("Erro ao carregar relatórios", { description: error.message });
     } else {
       const empMap = new Map((emps ?? []).map((e) => [e.id, e.nome]));
-      const enriched = (data ?? []).map((r: any) => ({
-        ...r,
-        empresa_nome: r.empresa_id ? (empMap.get(r.empresa_id) ?? "—") : "Todas",
-      }));
+      const enriched = (data ?? [])
+        .filter((r: any) => Number(r.total_pagamentos) > 0)
+        .map((r: any) => ({
+          ...r,
+          empresa_nome: r.empresa_id ? (empMap.get(r.empresa_id) ?? "—") : "Todas",
+        }));
       setRelatorios(enriched as unknown as Relatorio[]);
     }
     setLoading(false);
