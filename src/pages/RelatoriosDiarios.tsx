@@ -254,7 +254,10 @@ export default function RelatoriosDiarios() {
                 <Label className="text-xs">Data final</Label>
                 <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
               </div>
-              <Button variant="outline" onClick={limparFiltros}>Limpar</Button>
+              <div className="flex gap-2">
+                <Button onClick={aplicarFiltros} className="flex-1">Aplicar filtro</Button>
+                <Button variant="outline" onClick={limparFiltros}>Limpar</Button>
+              </div>
             </div>
           </CardContent>
         </Card>
