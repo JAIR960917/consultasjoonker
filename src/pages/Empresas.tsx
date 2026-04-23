@@ -116,9 +116,10 @@ export default function Empresas() {
       return;
     }
 
-    const { error } = editing
-      ? await supabase.from("empresas").update(payload).eq("id", editing.id)
-      : await supabase.from("empresas").insert(payload);
+    const isCreating = !editing;
+    const { data, error } = editing
+      ? await supabase.from("empresas").update(payload).eq("id", editing.id).select().single()
+      : await supabase.from("empresas").insert(payload).select().single();
 
     setSaving(false);
     if (error) {
@@ -127,7 +128,12 @@ export default function Empresas() {
     }
     toast.success(editing ? "Empresa atualizada" : "Empresa criada");
     setDialogOpen(false);
-    load();
+    await load();
+
+    // Após criar nova empresa, abre o modal de credenciais automaticamente
+    if (isCreating && data) {
+      setCredEmpresa(data as Empresa);
+    }
   };
 
   const remover = async (id: string) => {
