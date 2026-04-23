@@ -22,7 +22,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SERASA_BASE = "https://api.serasaexperian.com.br";
+// Ambiente: "uat" (homologação) ou "prod" (produção). Default: uat.
+const SERASA_ENV = (Deno.env.get("SERASA_ENV") ?? "uat").toLowerCase();
+const SERASA_BASE = SERASA_ENV === "prod"
+  ? "https://api.serasaexperian.com.br"
+  : "https://uat-api.serasaexperian.com.br";
 const TOKEN_URL = `${SERASA_BASE}/security/iam/v1/client-identities/login`;
 const REPORT_URL = `${SERASA_BASE}/credit-services/person-information-report/v1/creditreport`;
 
