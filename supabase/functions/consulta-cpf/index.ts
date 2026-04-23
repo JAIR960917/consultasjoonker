@@ -136,6 +136,11 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
       status: resp.status,
       body: text.substring(0, 500),
     });
+    if (resp.status === 404) {
+      const err = new Error("CPF não encontrado na base da Serasa");
+      (err as Error & { code?: string }).code = "DOCUMENT_NOT_FOUND";
+      throw err;
+    }
     throw new Error(`Serasa [${resp.status}]: ${text}`);
   }
   const json = JSON.parse(text);
