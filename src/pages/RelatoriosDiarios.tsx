@@ -66,11 +66,19 @@ export default function RelatoriosDiarios() {
   const [concluindo, setConcluindo] = useState(false);
 
   // Filtros — por padrão mostra TODOS os relatórios já gerados.
-  // O admin pode filtrar por período/status quando quiser.
+  // Os filtros só são aplicados quando o usuário clica em "Aplicar filtro".
   const [statusFiltro, setStatusFiltro] = useState<"todos" | "pendente" | "concluido">("todos");
   const [empresaFiltro, setEmpresaFiltro] = useState<string>("todas");
   const [dataInicio, setDataInicio] = useState<string>("");
   const [dataFim, setDataFim] = useState<string>("");
+
+  // Filtros efetivamente aplicados na lista
+  const [filtrosAplicados, setFiltrosAplicados] = useState({
+    status: "todos" as "todos" | "pendente" | "concluido",
+    empresa: "todas",
+    dataInicio: "",
+    dataFim: "",
+  });
 
   const carregar = async () => {
     setLoading(true);
@@ -130,13 +138,13 @@ export default function RelatoriosDiarios() {
 
   const filtrados = useMemo(() => {
     return relatorios.filter((r) => {
-      if (statusFiltro !== "todos" && r.status !== statusFiltro) return false;
-      if (isAdmin && empresaFiltro !== "todas" && r.empresa_id !== empresaFiltro) return false;
-      if (dataInicio && r.data_referencia < dataInicio) return false;
-      if (dataFim && r.data_referencia > dataFim) return false;
+      if (filtrosAplicados.status !== "todos" && r.status !== filtrosAplicados.status) return false;
+      if (isAdmin && filtrosAplicados.empresa !== "todas" && r.empresa_id !== filtrosAplicados.empresa) return false;
+      if (filtrosAplicados.dataInicio && r.data_referencia < filtrosAplicados.dataInicio) return false;
+      if (filtrosAplicados.dataFim && r.data_referencia > filtrosAplicados.dataFim) return false;
       return true;
     });
-  }, [relatorios, statusFiltro, empresaFiltro, dataInicio, dataFim, isAdmin]);
+  }, [relatorios, filtrosAplicados, isAdmin]);
 
   const totais = useMemo(() => ({
     qtd: filtrados.length,
@@ -146,11 +154,21 @@ export default function RelatoriosDiarios() {
     pendentes: filtrados.filter((r) => r.status !== "concluido").length,
   }), [filtrados]);
 
+  const aplicarFiltros = () => {
+    setFiltrosAplicados({
+      status: statusFiltro,
+      empresa: empresaFiltro,
+      dataInicio,
+      dataFim,
+    });
+  };
+
   const limparFiltros = () => {
     setStatusFiltro("todos");
     setEmpresaFiltro("todas");
     setDataInicio("");
     setDataFim("");
+    setFiltrosAplicados({ status: "todos", empresa: "todas", dataInicio: "", dataFim: "" });
   };
 
   return (
@@ -236,7 +254,10 @@ export default function RelatoriosDiarios() {
                 <Label className="text-xs">Data final</Label>
                 <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
               </div>
-              <Button variant="outline" onClick={limparFiltros}>Limpar</Button>
+              <div className="flex gap-2">
+                <Button onClick={aplicarFiltros} className="flex-1">Aplicar filtro</Button>
+                <Button variant="outline" onClick={limparFiltros}>Limpar</Button>
+              </div>
             </div>
           </CardContent>
         </Card>
