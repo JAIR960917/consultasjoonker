@@ -65,7 +65,8 @@ export default function RelatoriosDiarios() {
   const [gerando, setGerando] = useState(false);
   const [concluindo, setConcluindo] = useState(false);
 
-  // Filtros
+  // Filtros — por padrão mostra TODOS os relatórios já gerados.
+  // O admin pode filtrar por período/status quando quiser.
   const [statusFiltro, setStatusFiltro] = useState<"todos" | "pendente" | "concluido">("todos");
   const [empresaFiltro, setEmpresaFiltro] = useState<string>("todas");
   const [dataInicio, setDataInicio] = useState<string>("");
