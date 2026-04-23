@@ -73,29 +73,38 @@ Deno.serve(async (req) => {
       slug = (empresa?.slug ?? "").toUpperCase();
     }
     const suffix = slug ? `_${slug}` : "";
+    const authTokenSuffix = slug ? `_${slug.toLowerCase()}` : "";
 
     // Credenciais Assertiva (por empresa, com fallback global)
+    const readyAuthToken =
+      Deno.env.get(`ASSERTIVA_AUTH_TOKEN${authTokenSuffix}`) ??
+      Deno.env.get(`ASSERTIVA_AUTH_TOKEN${suffix}`) ??
+      Deno.env.get("ASSERTIVA_AUTH_TOKEN");
     const clientId = Deno.env.get(`ASSERTIVA_CLIENT_ID${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_ID");
     const clientSecret = Deno.env.get(`ASSERTIVA_CLIENT_SECRET${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_SECRET");
-    if (!clientId || !clientSecret) {
+    if (!readyAuthToken && (!clientId || !clientSecret)) {
       return json({ ok: false, error: `Credenciais Assertiva não configuradas (ASSERTIVA_CLIENT_ID${suffix})` }, 500);
     }
 
-    // OAuth2
-    const tokenResp = await fetch(`${ASSERTIVA_BASE}/oauth2/v3/token`, {
-      method: "POST",
-      headers: {
-        Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: "grant_type=client_credentials",
-    });
-    const tokenJson = await tokenResp.json().catch(() => ({}));
-    if (!tokenResp.ok || !tokenJson?.access_token) {
-      return json({ ok: false, error: "Falha ao obter token Assertiva", detail: tokenJson }, 502);
+    let authHeaderValue = readyAuthToken?.trim() ?? "";
+    if (!authHeaderValue) {
+      const tokenResp = await fetch(`${ASSERTIVA_BASE}/oauth2/v3/token`, {
+        method: "POST",
+        headers: {
+          Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: "grant_type=client_credentials",
+      });
+      const tokenJson = await tokenResp.json().catch(() => ({}));
+      if (!tokenResp.ok || !tokenJson?.access_token) {
+        return json({ ok: false, error: "Falha ao obter token Assertiva", detail: tokenJson }, 502);
+      }
+      authHeaderValue = `Bearer ${tokenJson.access_token as string}`;
+    } else if (!/^[A-Za-z]+\s+.+$/.test(authHeaderValue)) {
+      authHeaderValue = `Bearer ${authHeaderValue}`;
     }
-    const bearer = tokenJson.access_token as string;
 
     // A Assertiva pode bloquear a consulta direta do pedido em alguns ambientes,
     // retornando 403 para esses endpoints mesmo com OAuth válido.
@@ -112,7 +121,7 @@ Deno.serve(async (req) => {
     let lastBody = "";
     for (const ep of pedidoEndpoints) {
       const r = await fetch(`${AUTH_BASE}${ep}`, {
-        headers: { Authorization: `Bearer ${bearer}`, Accept: "application/json" },
+        headers: { Authorization: authHeaderValue, Accept: "application/json" },
       });
       lastStatus = r.status;
       lastBody = await r.text();
