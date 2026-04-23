@@ -73,12 +73,17 @@ Deno.serve(async (req) => {
       slug = (empresa?.slug ?? "").toUpperCase();
     }
     const suffix = slug ? `_${slug}` : "";
-    const authTokenSuffix = slug ? `_${slug.toLowerCase()}` : "";
+    const slugLower = slug.toLowerCase();
+    const slugTail = slugLower.includes("_") ? slugLower.split("_").at(-1) ?? "" : slugLower;
+    const authTokenSuffixes = [
+      slugLower ? `_${slugLower}` : "",
+      slugTail && slugTail !== slugLower ? `_${slugTail}` : "",
+      suffix,
+    ].filter(Boolean);
 
     // Credenciais Assertiva (por empresa, com fallback global)
     const readyAuthToken =
-      Deno.env.get(`ASSERTIVA_AUTH_TOKEN${authTokenSuffix}`) ??
-      Deno.env.get(`ASSERTIVA_AUTH_TOKEN${suffix}`) ??
+      authTokenSuffixes.map((item) => Deno.env.get(`ASSERTIVA_AUTH_TOKEN${item}`)).find(Boolean) ??
       Deno.env.get("ASSERTIVA_AUTH_TOKEN");
     const clientId = Deno.env.get(`ASSERTIVA_CLIENT_ID${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_ID");
     const clientSecret = Deno.env.get(`ASSERTIVA_CLIENT_SECRET${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_SECRET");

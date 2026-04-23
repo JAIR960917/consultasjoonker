@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
 
     const { data: contratos, error } = await admin
       .from("contracts")
-      .select("id, status, signature_data")
+      .select("id, status, signature_data, empresa_id")
       .eq("status", "aguardando_assinatura")
       .eq("signature_provider", "assertiva")
       .limit(200);
@@ -39,12 +39,25 @@ Deno.serve(async (req) => {
       const pedidoId = sigData?.data?.pedidoId ?? sigData?.pedidoId ?? sigData?.data?.id ?? null;
       if (!pedidoId) continue;
 
-      const empresaSlug = String(sigData?.empresa_slug ?? sigData?.empresaSlug ?? "").toUpperCase();
+      let empresaSlug = String(sigData?.empresa_slug ?? sigData?.empresaSlug ?? "").toUpperCase();
+      if (!empresaSlug && contrato.empresa_id) {
+        const { data: empresa } = await admin
+          .from("empresas")
+          .select("slug")
+          .eq("id", contrato.empresa_id)
+          .maybeSingle();
+        empresaSlug = String(empresa?.slug ?? "").toUpperCase();
+      }
       const suffix = empresaSlug ? `_${empresaSlug}` : "";
-      const authTokenSuffix = empresaSlug ? `_${empresaSlug.toLowerCase()}` : "";
+      const slugLower = empresaSlug.toLowerCase();
+      const slugTail = slugLower.includes("_") ? slugLower.split("_").at(-1) ?? "" : slugLower;
+      const authTokenSuffixes = [
+        slugLower ? `_${slugLower}` : "",
+        slugTail && slugTail !== slugLower ? `_${slugTail}` : "",
+        suffix,
+      ].filter(Boolean);
       let authHeaderValue =
-        Deno.env.get(`ASSERTIVA_AUTH_TOKEN${authTokenSuffix}`) ??
-        Deno.env.get(`ASSERTIVA_AUTH_TOKEN${suffix}`) ??
+        authTokenSuffixes.map((item) => Deno.env.get(`ASSERTIVA_AUTH_TOKEN${item}`)).find(Boolean) ??
         Deno.env.get("ASSERTIVA_AUTH_TOKEN") ?? "";
 
       if (!authHeaderValue) {
