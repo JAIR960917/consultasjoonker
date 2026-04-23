@@ -55,45 +55,60 @@ Deno.serve(async (req) => {
     const body = (await req.json().catch(() => ({}))) as BodyInput;
     const action = body.action ?? "register";
     const slug = (body.empresa_slug ?? "").trim();
-    const suffix = slug ? `_${slug.toUpperCase()}` : "";
+    const slugUpper = slug.toUpperCase();
+    const suffix = slug ? `_${slugUpper}` : "";
+    const slugLower = slug.toLowerCase();
+    const slugTail = slugLower.includes("_") ? slugLower.split("_").at(-1) ?? "" : slugLower;
+    const authTokenSuffixes = [
+      slugLower ? `_${slugLower}` : "",
+      slugTail && slugTail !== slugLower ? `_${slugTail}` : "",
+      suffix,
+    ].filter(Boolean);
 
     // ---------- Credenciais ----------
+    const readyAuthToken =
+      authTokenSuffixes.map((item) => Deno.env.get(`ASSERTIVA_AUTH_TOKEN${item}`)).find(Boolean) ??
+      Deno.env.get("ASSERTIVA_AUTH_TOKEN");
     const clientId = Deno.env.get(`ASSERTIVA_CLIENT_ID${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_ID");
     const clientSecret = Deno.env.get(`ASSERTIVA_CLIENT_SECRET${suffix}`) ?? Deno.env.get("ASSERTIVA_CLIENT_SECRET");
-    if (!clientId || !clientSecret) {
+    if (!readyAuthToken && (!clientId || !clientSecret)) {
       return json({
         ok: false,
         error: `Credenciais Assertiva não configuradas (ASSERTIVA_CLIENT_ID${suffix} / ASSERTIVA_CLIENT_SECRET${suffix}).`,
       }, 500);
     }
 
-    // ---------- OAuth2 ----------
-    const tokenResp = await fetch(`${ASSERTIVA_BASE}/oauth2/v3/token`, {
-      method: "POST",
-      headers: {
-        Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: "grant_type=client_credentials",
-    });
-    const tokenText = await tokenResp.text();
-    const tokenJson = safeJson(tokenText);
-    if (!tokenResp.ok || !tokenJson?.access_token) {
-      console.error("Assertiva OAuth error", tokenResp.status, tokenText.slice(0, 300));
-      return json({
-        ok: false,
-        error: tokenJson?.error_description || `Falha OAuth (HTTP ${tokenResp.status})`,
-      }, 502);
+    let authHeaderValue = readyAuthToken?.trim() ?? "";
+    if (!authHeaderValue) {
+      const tokenResp = await fetch(`${ASSERTIVA_BASE}/oauth2/v3/token`, {
+        method: "POST",
+        headers: {
+          Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: "grant_type=client_credentials",
+      });
+      const tokenText = await tokenResp.text();
+      const tokenJson = safeJson(tokenText);
+      if (!tokenResp.ok || !tokenJson?.access_token) {
+        console.error("Assertiva OAuth error", tokenResp.status, tokenText.slice(0, 300));
+        return json({
+          ok: false,
+          error: tokenJson?.error_description || `Falha OAuth (HTTP ${tokenResp.status})`,
+        }, 502);
+      }
+      authHeaderValue = `Bearer ${tokenJson.access_token as string}`;
+    } else if (!/^[A-Za-z]+\s+.+$/.test(authHeaderValue)) {
+      authHeaderValue = `Bearer ${authHeaderValue}`;
     }
-    const bearer = tokenJson.access_token as string;
 
     const authedFetch = (path: string, init: RequestInit = {}) =>
       fetch(`${AUTH_BASE}${path}`, {
         ...init,
         headers: {
           ...(init.headers ?? {}),
-          Authorization: `Bearer ${bearer}`,
+          Authorization: authHeaderValue,
           Accept: "application/json",
         },
       });
