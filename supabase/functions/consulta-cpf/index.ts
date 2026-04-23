@@ -64,27 +64,28 @@ async function getSerasaToken(): Promise<string> {
     });
     throw new Error(`Falha ao obter token Serasa [${resp.status}]: ${text}`);
   }
-  let data: { access_token?: string; expires_in?: number };
+  let data: { accessToken?: string; access_token?: string; expires_in?: number; expiresIn?: number };
   try {
     data = JSON.parse(text);
   } catch {
     console.error("Serasa token: resposta não-JSON", { status: resp.status, body: text.substring(0, 500) });
     throw new Error(`Resposta Serasa inválida (não-JSON): ${text.substring(0, 200)}`);
   }
-  if (!data.access_token) {
+  const token = data.accessToken ?? data.access_token;
+  if (!token) {
     console.error("Serasa token: sem access_token", {
       status: resp.status,
       env: SERASA_ENV,
-      tokenUrl: TOKEN_URL,
       keys: Object.keys(data),
       body: text.substring(0, 500),
     });
     throw new Error(`Resposta Serasa sem access_token. Body: ${text.substring(0, 200)}`);
   }
 
-  const ttlMs = (data.expires_in ?? 3600) * 1000;
-  cachedToken = { value: data.access_token, expiresAt: now + ttlMs };
-  return data.access_token;
+  const ttlSec = data.expiresIn ?? data.expires_in ?? 3600;
+  const ttlMs = ttlSec * 1000;
+  cachedToken = { value: token, expiresAt: now + ttlMs };
+  return token;
 }
 
 // ===== Tipos de retorno =====
