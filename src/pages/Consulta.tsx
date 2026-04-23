@@ -131,7 +131,12 @@ export default function Consulta() {
       }
       const { data, error } = await supabase.functions.invoke("consulta-cpf", { body: payload });
       if (error) throw error;
-      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+      const resp = data as { error?: string; notFound?: boolean } & ConsultaResult;
+      if (resp?.notFound) {
+        toast.warning("CPF não encontrado", { description: resp.error ?? "Documento não localizado na base da Serasa." });
+        return;
+      }
+      if (resp?.error) throw new Error(resp.error);
       setResult(data as ConsultaResult);
       // pega o id da consulta recém criada
       const { data: c } = await supabase
