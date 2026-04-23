@@ -18,6 +18,7 @@ import Contrato from "./pages/Contrato";
 import Contratos from "./pages/Contratos";
 import RelatoriosEmpresa from "./pages/RelatoriosEmpresa";
 import ConsultasSalvas from "./pages/ConsultasSalvas";
+import RelatoriosDiarios from "./pages/RelatoriosDiarios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
