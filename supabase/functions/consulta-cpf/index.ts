@@ -127,7 +127,10 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
+      // Serasa documenta "X-Document-Id" mas o e-mail de homologação cita "X-Documento-ID".
+      // Enviamos ambos para garantir compatibilidade nos dois ambientes.
       "X-Document-Id": cpf,
+      "X-Documento-ID": cpf,
       "X-Retailer-Document-Id": retailerCnpj,
     },
   });
