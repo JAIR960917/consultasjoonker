@@ -15,6 +15,7 @@
 //   - SERASA_CLIENT_SECRET
 //   - SERASA_RETAILER_CNPJ   (CNPJ da empresa consultante, somente dígitos ou formatado)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { create } from "https://deno.land/x/djwt@v2.8/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,42 +34,27 @@ const REPORT_URL = `${SERASA_BASE}/credit-services/person-information-report/v1/
 // ===== Cache de token em memória =====
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
-// Gera JWT HS256 assinado com o ClientSecret, usando ClientID como issuer.
-// Padrão de autenticação da Serasa Experian Developer Platform.
+// Gera JWT HS256 assinado com o ClientSecret.
+// Alguns endpoints da Serasa validam estritamente apenas claims mínimas.
 async function signSerasaJwt(clientId: string, clientSecret: string): Promise<string> {
-  const header = { alg: "HS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    iss: clientId,
-    sub: clientId,
-    aud: "serasaexperian.com.br",
-    iat: now,
-    exp: now + 300, // JWT de assertion vale 5min (suficiente pro /login)
-  };
-
-  const b64url = (obj: unknown) =>
-    btoa(JSON.stringify(obj))
-      .replace(/=/g, "")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_");
-
-  const data = `${b64url(header)}.${b64url(payload)}`;
-
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(clientSecret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"],
+    ["sign", "verify"],
   );
 
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-
-  return `${data}.${sigB64}`;
+  return await create(
+    { alg: "HS256", typ: "JWT" },
+    {
+      iss: clientId,
+      nbf: now - 5,
+      exp: now + 1800,
+    },
+    key,
+  );
 }
 
 async function getSerasaToken(): Promise<string> {
@@ -103,14 +89,21 @@ async function getSerasaToken(): Promise<string> {
     });
     throw new Error(`Falha ao obter token Serasa [${resp.status}]: ${text}`);
   }
-  let data: { accessToken?: string; access_token?: string; expires_in?: number; expiresIn?: number };
+  let data: {
+    accessToken?: string;
+    access_token?: string;
+    token?: string;
+    expires_in?: number;
+    expiresIn?: number;
+    expiresInSeconds?: number;
+  };
   try {
     data = JSON.parse(text);
   } catch {
     console.error("Serasa token: resposta não-JSON", { status: resp.status, body: text.substring(0, 500) });
     throw new Error(`Resposta Serasa inválida (não-JSON): ${text.substring(0, 200)}`);
   }
-  const token = data.accessToken ?? data.access_token;
+  const token = data.accessToken ?? data.access_token ?? data.token;
   if (!token) {
     console.error("Serasa token: sem access_token", {
       status: resp.status,
@@ -121,7 +114,7 @@ async function getSerasaToken(): Promise<string> {
     throw new Error(`Resposta Serasa sem access_token. Body: ${text.substring(0, 200)}`);
   }
 
-  const ttlSec = Math.min(data.expiresIn ?? data.expires_in ?? 3300, 3300);
+  const ttlSec = Math.min(data.expiresInSeconds ?? data.expiresIn ?? data.expires_in ?? 3300, 3300);
   const ttlMs = ttlSec * 1000;
   cachedToken = { value: token, expiresAt: now + ttlMs };
   console.log(`[Serasa] Novo token gerado. TTL=${ttlSec}s. Expira em ${new Date(cachedToken.expiresAt).toISOString()}`);
