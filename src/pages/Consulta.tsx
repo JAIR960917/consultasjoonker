@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Search, Loader2, User2, CheckCircle2, XCircle, Calculator, Printer, AlertTriangle, History,
+  Search, Loader2, User2, CheckCircle2, XCircle, Calculator, Printer, AlertTriangle, History, FlaskConical,
 } from "lucide-react";
 import {
   maskCpf, brl, pricePmt, suggestedEntry, availableInstallments,
@@ -58,6 +58,20 @@ export default function Consulta() {
   const [settings, setSettings] = useState<SettingsLite | null>(null);
   const [empresasDisponiveis, setEmpresasDisponiveis] = useState<EmpresaOption[]>([]);
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
+
+  // Testes de homologação Serasa
+  const [homologBusy, setHomologBusy] = useState(false);
+  const [homologResults, setHomologResults] = useState<Array<{
+    cpf: string;
+    cenario: string;
+    ok: boolean;
+    nome?: string;
+    score?: number;
+    totalPendencias?: number;
+    somaPendencias?: number;
+    error?: string;
+    rawSnippet?: string;
+  }> | null>(null);
 
   // Simulação
   const [modoSimulacao, setModoSimulacao] = useState(false);
@@ -169,6 +183,64 @@ export default function Consulta() {
       toast.error("Falha na consulta", { description: e instanceof Error ? e.message : String(e) });
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** Roda os 3 CPFs de homologação Serasa em sequência e monta um resumo. */
+  const rodarTestesHomologacao = async () => {
+    const casos = [
+      { cpf: "00000000191", cenario: "Score baixo / com pendências" },
+      { cpf: "00000000272", cenario: "Score médio" },
+      { cpf: "00000000353", cenario: "Score alto / aprovado" },
+    ];
+    setHomologBusy(true);
+    setHomologResults(null);
+    const acumulado: NonNullable<typeof homologResults> = [];
+    try {
+      for (const caso of casos) {
+        try {
+          const { data, error } = await supabase.functions.invoke("consulta-cpf", {
+            body: { cpf: caso.cpf },
+          });
+          if (error) throw error;
+          const resp = data as {
+            error?: string;
+            notFound?: boolean;
+            nome?: string;
+            score?: number;
+            totalPendencias?: number;
+            somaPendencias?: number;
+          };
+          if (resp?.error && !resp?.notFound) throw new Error(resp.error);
+          acumulado.push({
+            cpf: caso.cpf,
+            cenario: caso.cenario,
+            ok: !resp?.notFound,
+            nome: resp?.nome,
+            score: resp?.score,
+            totalPendencias: resp?.totalPendencias,
+            somaPendencias: resp?.somaPendencias,
+            error: resp?.notFound ? "CPF não encontrado na base" : undefined,
+          });
+        } catch (e) {
+          acumulado.push({
+            cpf: caso.cpf,
+            cenario: caso.cenario,
+            ok: false,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      setHomologResults(acumulado);
+      const sucesso = acumulado.filter((r) => r.ok).length;
+      if (sucesso === casos.length) {
+        toast.success(`Homologação OK — ${sucesso}/${casos.length} CPFs respondidos`);
+      } else {
+        toast.warning(`Homologação parcial — ${sucesso}/${casos.length} CPFs OK`);
+      }
+    } finally {
+      setHomologBusy(false);
     }
   };
 
@@ -394,8 +466,107 @@ export default function Consulta() {
               </div>
             </div>
           )}
+
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed bg-muted/20 p-3">
+            <div>
+              <p className="text-sm font-medium flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-primary" />
+                Testes de homologação Serasa
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Consulta os 3 CPFs de homologação (001-91, 002-72, 003-53) e gera um resumo para anexar ao chamado da Serasa.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={rodarTestesHomologacao}
+              disabled={homologBusy}
+            >
+              {homologBusy
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Rodando...</>
+                : <>Rodar 3 testes</>
+              }
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Resumo dos testes de homologação */}
+      {homologResults && (
+        <Card className="mt-6 shadow-card overflow-hidden print:hidden">
+          <div className="h-1 bg-primary" />
+          <CardContent className="p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Resumo da homologação Serasa</h2>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />Imprimir
+              </Button>
+            </div>
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader className="bg-muted/60">
+                  <TableRow>
+                    <TableHead>CPF</TableHead>
+                    <TableHead>Cenário</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="text-right">Score</TableHead>
+                    <TableHead className="text-right">Pendências</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {homologResults.map((r) => (
+                    <TableRow key={r.cpf}>
+                      <TableCell className="font-mono text-xs">{maskCpf(r.cpf)}</TableCell>
+                      <TableCell className="text-sm">{r.cenario}</TableCell>
+                      <TableCell className="text-sm">{r.nome ?? "—"}</TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {typeof r.score === "number" ? r.score : "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {typeof r.totalPendencias === "number" ? (
+                          <span>
+                            {r.totalPendencias}
+                            {r.somaPendencias && r.somaPendencias > 0 ? (
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                ({brl(r.somaPendencias)})
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {r.ok ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-500">
+                            <CheckCircle2 className="h-3 w-3" />OK
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive" title={r.error}>
+                            <XCircle className="h-3 w-3" />Falhou
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {homologResults.some((r) => !r.ok) && (
+              <div className="mt-3 space-y-1">
+                {homologResults.filter((r) => !r.ok).map((r) => (
+                  <p key={r.cpf} className="text-xs text-destructive">
+                    <span className="font-mono">{maskCpf(r.cpf)}</span>: {r.error}
+                  </p>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {result && settings && (
         <>
