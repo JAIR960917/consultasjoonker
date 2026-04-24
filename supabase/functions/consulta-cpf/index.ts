@@ -96,7 +96,7 @@ export interface Pendencia {
   valor: number;
   data: string | null;
   tipo: string;
-  contrato?: string;
+  contrato?: string | null;
 }
 
 interface SerasaResult {
