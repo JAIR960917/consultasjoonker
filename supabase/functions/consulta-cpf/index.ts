@@ -82,9 +82,11 @@ async function getSerasaToken(): Promise<string> {
     throw new Error(`Resposta Serasa sem access_token. Body: ${text.substring(0, 200)}`);
   }
 
-  const ttlSec = data.expiresIn ?? data.expires_in ?? 3600;
+  // Serasa: token vale 60min. Usamos 55min (3300s) como teto de segurança.
+  const ttlSec = Math.min(data.expiresIn ?? data.expires_in ?? 3300, 3300);
   const ttlMs = ttlSec * 1000;
   cachedToken = { value: token, expiresAt: now + ttlMs };
+  console.log(`[Serasa] Novo token gerado. TTL=${ttlSec}s. Expira em ${new Date(cachedToken.expiresAt).toISOString()}`);
   return token;
 }
 
