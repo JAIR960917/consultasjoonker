@@ -417,7 +417,9 @@ Deno.serve(async (req) => {
         };
       } else {
         // 2) Cache miss → consulta Serasa
-        serasa = await consultarSerasa(cpf);
+        const ufReq = typeof body?.uf === "string" ? body.uf.trim().toUpperCase() : "";
+        const uf = /^[A-Z]{2}$/.test(ufReq) ? ufReq : "SP";
+        serasa = await consultarSerasa(cpf, uf);
 
         // 3) Salva/atualiza cache (upsert por CPF)
         const { error: cacheErr } = await supabase
