@@ -15,7 +15,6 @@
 //   - SERASA_CLIENT_SECRET
 //   - SERASA_RETAILER_CNPJ   (CNPJ da empresa consultante, somente dígitos ou formatado)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { create } from "https://deno.land/x/djwt@v2.8/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
