@@ -40,6 +40,14 @@ interface ConsultaResult {
   somaPendencias?: number;
 }
 
+interface HistoricoItem {
+  id: string;
+  created_at: string;
+  score: number | null;
+  status: string;
+  nome: string | null;
+}
+
 export default function Consulta() {
   const nav = useNavigate();
   const { cidade: cidadeUsuario, role, empresaId } = useAuth();
@@ -49,6 +57,7 @@ export default function Consulta() {
   const [consultaId, setConsultaId] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsLite | null>(null);
   const [empresasDisponiveis, setEmpresasDisponiveis] = useState<EmpresaOption[]>([]);
+  const [historico, setHistorico] = useState<HistoricoItem[]>([]);
 
   // Simulação
   const [modoSimulacao, setModoSimulacao] = useState(false);
