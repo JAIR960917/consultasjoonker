@@ -148,11 +148,22 @@ export default function Consulta() {
       if (resp?.error) throw new Error(resp.error);
       setResult(data as ConsultaResult);
       // pega o id da consulta recém criada
+      const cpfDigits = (data as ConsultaResult).cpf;
       const { data: c } = await supabase
         .from("consultas")
-        .select("id").eq("cpf", (data as ConsultaResult).cpf)
+        .select("id").eq("cpf", cpfDigits)
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (c) setConsultaId(c.id);
+
+      // busca histórico de consultas anteriores deste CPF (RLS filtra por usuário/empresa)
+      const { data: hist } = await supabase
+        .from("consultas")
+        .select("id, created_at, score, status, nome")
+        .eq("cpf", cpfDigits)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (hist) setHistorico(hist as HistoricoItem[]);
+
       toast.success(modoSimulacao ? "Simulação carregada" : "Consulta concluída");
     } catch (e: unknown) {
       toast.error("Falha na consulta", { description: e instanceof Error ? e.message : String(e) });
