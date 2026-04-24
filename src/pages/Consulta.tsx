@@ -474,7 +474,7 @@ export default function Consulta() {
                 Testes de homologação Serasa
               </p>
               <p className="text-xs text-muted-foreground">
-                Consulta os 3 CPFs de homologação (001-91, 002-72, 003-53) e gera um resumo para anexar ao chamado da Serasa.
+                Consulta os 3 CPFs de homologação (003-53, 011-63, 012-44) e gera um resumo para anexar ao chamado da Serasa.
               </p>
             </div>
             <Button
