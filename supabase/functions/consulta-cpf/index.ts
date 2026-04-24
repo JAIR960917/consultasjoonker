@@ -33,6 +33,44 @@ const REPORT_URL = `${SERASA_BASE}/credit-services/person-information-report/v1/
 // ===== Cache de token em memória =====
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
+// Gera JWT HS256 assinado com o ClientSecret, usando ClientID como issuer.
+// Padrão de autenticação da Serasa Experian Developer Platform.
+async function signSerasaJwt(clientId: string, clientSecret: string): Promise<string> {
+  const header = { alg: "HS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: clientId,
+    sub: clientId,
+    aud: "serasaexperian.com.br",
+    iat: now,
+    exp: now + 300, // JWT de assertion vale 5min (suficiente pro /login)
+  };
+
+  const b64url = (obj: unknown) =>
+    btoa(JSON.stringify(obj))
+      .replace(/=/g, "")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_");
+
+  const data = `${b64url(header)}.${b64url(payload)}`;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(clientSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
+  return `${data}.${sigB64}`;
+}
+
 async function getSerasaToken(): Promise<string> {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt - 60_000 > now) return cachedToken.value;
@@ -43,12 +81,12 @@ async function getSerasaToken(): Promise<string> {
     throw new Error("Credenciais Serasa não configuradas no servidor");
   }
 
-  const basic = btoa(`${clientId}:${clientSecret}`);
+  const jwt = await signSerasaJwt(clientId, clientSecret);
 
   const resp = await fetch(TOKEN_URL, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${basic}`,
+      Authorization: `Bearer ${jwt}`,
       Accept: "application/json",
       "Content-Type": "application/x-www-form-urlencoded",
     },
@@ -61,7 +99,7 @@ async function getSerasaToken(): Promise<string> {
       status: resp.status,
       clientIdPrefix: clientId.substring(0, 6),
       clientIdLen: clientId.length,
-      body: text.substring(0, 300),
+      body: text.substring(0, 500),
     });
     throw new Error(`Falha ao obter token Serasa [${resp.status}]: ${text}`);
   }
@@ -83,7 +121,6 @@ async function getSerasaToken(): Promise<string> {
     throw new Error(`Resposta Serasa sem access_token. Body: ${text.substring(0, 200)}`);
   }
 
-  // Serasa: token vale 60min. Usamos 55min (3300s) como teto de segurança.
   const ttlSec = Math.min(data.expiresIn ?? data.expires_in ?? 3300, 3300);
   const ttlMs = ttlSec * 1000;
   cachedToken = { value: token, expiresAt: now + ttlMs };
