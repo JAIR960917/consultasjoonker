@@ -284,6 +284,25 @@ function pickPath(obj: unknown, path: string[]): unknown {
   return cur;
 }
 
+// Busca recursiva por qualquer chave "score" / "value" plausível (0-1000)
+function deepFindScore(obj: unknown, depth = 0): number | null {
+  if (depth > 8 || obj == null) return null;
+  if (typeof obj !== "object") return null;
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    const lk = k.toLowerCase();
+    if ((lk === "score" || lk === "value" || lk === "scorevalue") &&
+        (typeof v === "number" || typeof v === "string")) {
+      const n = typeof v === "number" ? v : Number.parseInt(String(v), 10);
+      if (Number.isFinite(n) && n > 0 && n <= 1000) return n;
+    }
+    if (v && typeof v === "object") {
+      const found = deepFindScore(v, depth + 1);
+      if (found != null) return found;
+    }
+  }
+  return null;
+}
+
 // Busca em arrays do tipo [{ modelCode: "HLRD", score: 700 }, ...]
 function pickFromArrayByKey(
   obj: unknown,
