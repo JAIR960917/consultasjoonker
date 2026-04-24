@@ -15,7 +15,6 @@
 //   - SERASA_CLIENT_SECRET
 //   - SERASA_RETAILER_CNPJ   (CNPJ da empresa consultante, somente dígitos ou formatado)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { create } from "https://deno.land/x/djwt@v2.8/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,29 +33,6 @@ const REPORT_URL = `${SERASA_BASE}/credit-services/person-information-report/v1/
 // ===== Cache de token em memória =====
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
-// Gera JWT HS256 assinado com o ClientSecret.
-// Alguns endpoints da Serasa validam estritamente apenas claims mínimas.
-async function signSerasaJwt(clientId: string, clientSecret: string): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(clientSecret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign", "verify"],
-  );
-
-  return await create(
-    { alg: "HS256", typ: "JWT" },
-    {
-      iss: clientId,
-      nbf: now - 5,
-      exp: now + 1800,
-    },
-    key,
-  );
-}
-
 async function getSerasaToken(): Promise<string> {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt - 60_000 > now) return cachedToken.value;
@@ -67,22 +43,28 @@ async function getSerasaToken(): Promise<string> {
     throw new Error("Credenciais Serasa não configuradas no servidor");
   }
 
-  const jwt = await signSerasaJwt(clientId, clientSecret);
+  // Doc oficial Serasa Experian:
+  // POST /security/iam/v1/client-identities/login
+  // Header: Authorization: Basic base64(client_id:client_secret)
+  // Header: Content-Type: application/json
+  // Body: vazio
+  const basic = btoa(`${clientId}:${clientSecret}`);
 
   const resp = await fetch(TOKEN_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${jwt}`,
+      Authorization: `Basic ${basic}`,
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: "{}",
   });
 
   const text = await resp.text();
   if (!resp.ok) {
     console.error("Serasa token error", {
       status: resp.status,
+      env: SERASA_ENV,
+      url: TOKEN_URL,
       clientIdPrefix: clientId.substring(0, 6),
       clientIdLen: clientId.length,
       body: text.substring(0, 500),
