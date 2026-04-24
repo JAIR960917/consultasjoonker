@@ -165,46 +165,76 @@ async function consultarSerasa(cpf: string, federalUnit = "SP"): Promise<SerasaR
   }
   const json = JSON.parse(text);
 
-  // Nome — tenta vários caminhos comuns no Básico PF
+  const reportRoot = getPrimaryReport(json);
+
+  // Nome — prioriza o formato real do Relatório Básico PF e mantém fallback legado
   const nome =
-    pickPath(json, ["registrationData", "name"]) ??
-    pickPath(json, ["registration", "name"]) ??
-    pickPath(json, ["consumer", "name"]) ??
-    pickPath(json, ["consumer", "fullName"]) ??
-    pickPath(json, ["personRegistrationData", "name"]) ??
+    pickPath(reportRoot, ["registration", "consumerName"]) ??
+    pickPath(reportRoot, ["registrationData", "name"]) ??
+    pickPath(reportRoot, ["registration", "name"]) ??
+    pickPath(reportRoot, ["consumer", "name"]) ??
+    pickPath(reportRoot, ["consumer", "fullName"]) ??
+    pickPath(reportRoot, ["personRegistrationData", "name"]) ??
     pickPath(json, ["data", "name"]) ??
     "Cliente";
 
   // Data de nascimento — tenta vários caminhos
   const dataNascRaw =
-    pickPath(json, ["registrationData", "birthDate"]) ??
-    pickPath(json, ["registration", "birthDate"]) ??
-    pickPath(json, ["consumer", "birthDate"]) ??
-    pickPath(json, ["personRegistrationData", "birthDate"]) ??
+    pickPath(reportRoot, ["registration", "birthDate"]) ??
+    pickPath(reportRoot, ["registrationData", "birthDate"]) ??
+    pickPath(reportRoot, ["consumer", "birthDate"]) ??
+    pickPath(reportRoot, ["personRegistrationData", "birthDate"]) ??
     pickPath(json, ["data", "birthDate"]) ??
     null;
 
+  const scoreFeature =
+    pickPath(json, ["optionalFeatures", "score"]) ??
+    pickPath(reportRoot, ["optionalFeatures", "score"]);
+
   // Score — Básico PF normalmente devolve em scoreCH/scoreModels com modelo HLRD
   const scoreRaw =
-    pickPath(json, ["scoreCH", "score"]) ??
-    pickPath(json, ["scoreCH", "value"]) ??
-    pickFromArrayByKey(json, ["scoreModels"], "modelCode", "HLRD", ["score"]) ??
-    pickFromArrayByKey(json, ["scoreModels"], "modelCode", "HLRD", ["value"]) ??
-    pickPath(json, ["score", "value"]) ??
-    pickPath(json, ["score", "score"]) ??
-    pickPath(json, ["positiveScore", "score"]) ??
-    pickPath(json, ["positiveScore", "value"]) ??
-    pickPath(json, ["serasaScore", "value"]) ??
+    pickPath(scoreFeature, ["score"]) ??
+    pickPath(scoreFeature, ["value"]) ??
+    pickPath(scoreFeature, ["points"]) ??
+    pickPath(scoreFeature, ["scoreValue"]) ??
+    pickPath(reportRoot, ["scoreCH", "score"]) ??
+    pickPath(reportRoot, ["scoreCH", "value"]) ??
+    pickFromArrayByKey(reportRoot, ["scoreModels"], "modelCode", "HLRD", ["score"]) ??
+    pickFromArrayByKey(reportRoot, ["scoreModels"], "modelCode", "HLRD", ["value"]) ??
+    pickPath(reportRoot, ["score", "value"]) ??
+    pickPath(reportRoot, ["score", "score"]) ??
+    pickPath(reportRoot, ["positiveScore", "score"]) ??
+    pickPath(reportRoot, ["positiveScore", "value"]) ??
+    pickPath(reportRoot, ["serasaScore", "value"]) ??
     pickPath(json, ["data", "score"]) ??
     deepFindScore(json);
 
-  const score = typeof scoreRaw === "number"
+  let score = typeof scoreRaw === "number"
     ? scoreRaw
     : Number.parseInt(String(scoreRaw ?? "0"), 10);
 
   if (!Number.isFinite(score) || score <= 0) {
-    console.error("Score não encontrado. JSON Serasa:", JSON.stringify(json).substring(0, 2000));
-    throw new Error("Resposta Serasa sem score válido (verifique os caminhos do JSON na doc do produto)");
+    const scoreInfo = scoreFeature && typeof scoreFeature === "object"
+      ? scoreFeature as Record<string, unknown>
+      : null;
+    const scoreMessage = scoreInfo
+      ? pickFirstString(scoreInfo, [["message"], ["description"], ["status"]])
+      : null;
+    const scoreCode = scoreInfo
+      ? pickFirstNumber(scoreInfo, [["codeMessage"], ["code"]])
+      : null;
+
+    if (scoreMessage || scoreCode !== null) {
+      console.warn("Score Serasa indisponível, usando 0 como fallback", {
+        cpf,
+        scoreCode,
+        scoreMessage,
+      });
+      score = 0;
+    } else {
+      console.error("Score não encontrado. JSON Serasa:", JSON.stringify(json).substring(0, 2000));
+      throw new Error("Resposta Serasa sem score válido (verifique os caminhos do JSON na doc do produto)");
+    }
   }
 
   const pendencias = extrairPendencias(json);
@@ -235,7 +265,13 @@ async function consultarSerasa(cpf: string, federalUnit = "SP"): Promise<SerasaR
 }
 
 function extrairPendencias(json: unknown): Pendencia[] {
+  const reportRoot = getPrimaryReport(json);
   const candidatos: unknown[] = [
+    pickPath(reportRoot, ["negativeData", "pefin", "pefinResponse"]),
+    pickPath(reportRoot, ["negativeData", "refin", "refinResponse"]),
+    pickPath(reportRoot, ["negativeData", "notary", "notaryResponse"]),
+    pickPath(reportRoot, ["negativeData", "check", "checkResponse"]),
+    pickPath(reportRoot, ["negativeData", "collectionRecords", "collectionRecordsResponse"]),
     pickPath(json, ["pendencies"]),
     pickPath(json, ["pendingDebts"]),
     pickPath(json, ["pendingDebts", "debts"]),
@@ -272,6 +308,15 @@ function extrairPendencias(json: unknown): Pendencia[] {
 
     return { credor, valor: valor ?? 0, data, tipo: String(tipo).toUpperCase(), contrato };
   });
+}
+
+function getPrimaryReport(json: unknown): Record<string, unknown> | unknown {
+  const reports = pickPath(json, ["reports"]);
+  if (Array.isArray(reports)) {
+    const firstReport = reports.find((item) => item && typeof item === "object");
+    if (firstReport) return firstReport;
+  }
+  return json;
 }
 
 function pickPath(obj: unknown, path: string[]): unknown {
