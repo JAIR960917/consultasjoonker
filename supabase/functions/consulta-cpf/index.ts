@@ -123,7 +123,7 @@ interface SerasaResult {
 }
 
 // ===== Chamada ao Relatório Básico PF =====
-async function consultarSerasa(cpf: string): Promise<SerasaResult> {
+async function consultarSerasa(cpf: string, federalUnit = "SP"): Promise<SerasaResult> {
   const token = await getSerasaToken();
 
   const retailerCnpj = onlyDigits(Deno.env.get("SERASA_RETAILER_CNPJ") ?? "");
@@ -134,6 +134,8 @@ async function consultarSerasa(cpf: string): Promise<SerasaResult> {
   const url = new URL(REPORT_URL);
   url.searchParams.set("reportName", "PERFIL_DE_CREDITO_BASICO_PF");
   url.searchParams.append("optionalFeatures", "SCORE_POSITIVO");
+  // SCORE_POSITIVO exige federalUnit (UF) como parâmetro obrigatório
+  url.searchParams.set("federalUnit", federalUnit);
 
   const resp = await fetch(url.toString(), {
     method: "GET",
@@ -415,7 +417,9 @@ Deno.serve(async (req) => {
         };
       } else {
         // 2) Cache miss → consulta Serasa
-        serasa = await consultarSerasa(cpf);
+        const ufReq = typeof body?.uf === "string" ? body.uf.trim().toUpperCase() : "";
+        const uf = /^[A-Z]{2}$/.test(ufReq) ? ufReq : "SP";
+        serasa = await consultarSerasa(cpf, uf);
 
         // 3) Salva/atualiza cache (upsert por CPF)
         const { error: cacheErr } = await supabase
