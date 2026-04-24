@@ -193,16 +193,17 @@ async function consultarSerasa(cpf: string, federalUnit = "SP"): Promise<SerasaR
     pickPath(json, ["score", "value"]) ??
     pickPath(json, ["score", "score"]) ??
     pickPath(json, ["positiveScore", "score"]) ??
+    pickPath(json, ["positiveScore", "value"]) ??
     pickPath(json, ["serasaScore", "value"]) ??
     pickPath(json, ["data", "score"]) ??
-    null;
+    deepFindScore(json);
 
   const score = typeof scoreRaw === "number"
     ? scoreRaw
     : Number.parseInt(String(scoreRaw ?? "0"), 10);
 
   if (!Number.isFinite(score) || score <= 0) {
-    console.error("Score não encontrado. Chaves no topo do JSON:", Object.keys(json ?? {}));
+    console.error("Score não encontrado. JSON Serasa:", JSON.stringify(json).substring(0, 2000));
     throw new Error("Resposta Serasa sem score válido (verifique os caminhos do JSON na doc do produto)");
   }
 
@@ -281,6 +282,25 @@ function pickPath(obj: unknown, path: string[]): unknown {
     } else return undefined;
   }
   return cur;
+}
+
+// Busca recursiva por qualquer chave "score" / "value" plausível (0-1000)
+function deepFindScore(obj: unknown, depth = 0): number | null {
+  if (depth > 8 || obj == null) return null;
+  if (typeof obj !== "object") return null;
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    const lk = k.toLowerCase();
+    if ((lk === "score" || lk === "value" || lk === "scorevalue") &&
+        (typeof v === "number" || typeof v === "string")) {
+      const n = typeof v === "number" ? v : Number.parseInt(String(v), 10);
+      if (Number.isFinite(n) && n > 0 && n <= 1000) return n;
+    }
+    if (v && typeof v === "object") {
+      const found = deepFindScore(v, depth + 1);
+      if (found != null) return found;
+    }
+  }
+  return null;
 }
 
 // Busca em arrays do tipo [{ modelCode: "HLRD", score: 700 }, ...]
