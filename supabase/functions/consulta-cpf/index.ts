@@ -74,9 +74,9 @@ async function getSerasaToken(): Promise<string> {
     headers: {
       Authorization: `Bearer ${jwt}`,
       Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
+      "Content-Type": "application/json",
     },
-    body: "grant_type=client_credentials",
+    body: "{}",
   });
 
   const text = await resp.text();
