@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Search, Loader2, User2, CheckCircle2, XCircle, Calculator, Printer, AlertTriangle,
+  Search, Loader2, User2, CheckCircle2, XCircle, Calculator, Printer, AlertTriangle, History,
 } from "lucide-react";
 import {
   maskCpf, brl, pricePmt, suggestedEntry, availableInstallments,
@@ -40,6 +40,14 @@ interface ConsultaResult {
   somaPendencias?: number;
 }
 
+interface HistoricoItem {
+  id: string;
+  created_at: string;
+  score: number | null;
+  status: string;
+  nome: string | null;
+}
+
 export default function Consulta() {
   const nav = useNavigate();
   const { cidade: cidadeUsuario, role, empresaId } = useAuth();
@@ -49,6 +57,7 @@ export default function Consulta() {
   const [consultaId, setConsultaId] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsLite | null>(null);
   const [empresasDisponiveis, setEmpresasDisponiveis] = useState<EmpresaOption[]>([]);
+  const [historico, setHistorico] = useState<HistoricoItem[]>([]);
 
   // Simulação
   const [modoSimulacao, setModoSimulacao] = useState(false);
@@ -118,7 +127,7 @@ export default function Consulta() {
 
   const consultar = async () => {
     setBusy(true);
-    setResult(null); setConsultaId(null);
+    setResult(null); setConsultaId(null); setHistorico([]);
     setValorTotal(""); setValorEntrada(""); setParcelas(null);
     try {
       const payload: Record<string, unknown> = { cpf: cpf.replace(/\D/g, "") };
@@ -139,11 +148,22 @@ export default function Consulta() {
       if (resp?.error) throw new Error(resp.error);
       setResult(data as ConsultaResult);
       // pega o id da consulta recém criada
+      const cpfDigits = (data as ConsultaResult).cpf;
       const { data: c } = await supabase
         .from("consultas")
-        .select("id").eq("cpf", (data as ConsultaResult).cpf)
+        .select("id").eq("cpf", cpfDigits)
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (c) setConsultaId(c.id);
+
+      // busca histórico de consultas anteriores deste CPF (RLS filtra por usuário/empresa)
+      const { data: hist } = await supabase
+        .from("consultas")
+        .select("id, created_at, score, status, nome")
+        .eq("cpf", cpfDigits)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (hist) setHistorico(hist as HistoricoItem[]);
+
       toast.success(modoSimulacao ? "Simulação carregada" : "Consulta concluída");
     } catch (e: unknown) {
       toast.error("Falha na consulta", { description: e instanceof Error ? e.message : String(e) });
@@ -455,6 +475,68 @@ export default function Consulta() {
                 <div>
                   <p className="font-semibold">Sem pendências financeiras</p>
                   <p className="text-sm text-muted-foreground">Não foram localizadas dívidas (PEFIN/REFIN) no Relatório Intermediário PF.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Histórico de consultas deste CPF */}
+          {historico.length > 0 && (
+            <Card className="mt-6 shadow-card overflow-hidden">
+              <div className="h-1 bg-primary/60" />
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Histórico de consultas deste CPF</h2>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {historico.length} registro{historico.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-muted/60">
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Origem</TableHead>
+                        <TableHead className="text-right">Score</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {historico.map((h) => {
+                        const dt = new Date(h.created_at);
+                        const dataStr = dt.toLocaleString("pt-BR", {
+                          day: "2-digit", month: "2-digit", year: "numeric",
+                          hour: "2-digit", minute: "2-digit",
+                        });
+                        const statusLabel =
+                          h.status === "simulacao" ? "Simulação"
+                          : h.status === "cache" ? "Cache (3 meses)"
+                          : h.status === "sucesso" ? "Serasa"
+                          : h.status;
+                        const statusClass =
+                          h.status === "simulacao" ? "bg-accent/10 text-accent"
+                          : h.status === "cache" ? "bg-muted text-muted-foreground"
+                          : "bg-emerald-500/10 text-emerald-500";
+                        return (
+                          <TableRow key={h.id}>
+                            <TableCell className="text-muted-foreground">{dataStr}</TableCell>
+                            <TableCell>{h.nome ?? "—"}</TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+                                {statusLabel}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              {h.score ?? "—"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>
