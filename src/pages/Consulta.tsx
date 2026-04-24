@@ -189,9 +189,9 @@ export default function Consulta() {
   /** Roda os 3 CPFs de homologação Serasa em sequência e monta um resumo. */
   const rodarTestesHomologacao = async () => {
     const casos = [
-      { cpf: "00000000191", cenario: "Score baixo / com pendências" },
-      { cpf: "00000000272", cenario: "Score médio" },
-      { cpf: "00000000353", cenario: "Score alto / aprovado" },
+      { cpf: "00000000353", cenario: "CPF de homologação 1" },
+      { cpf: "00000001163", cenario: "CPF de homologação 2" },
+      { cpf: "00000001244", cenario: "CPF de homologação 3" },
     ];
     setHomologBusy(true);
     setHomologResults(null);
