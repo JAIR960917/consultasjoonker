@@ -193,16 +193,17 @@ async function consultarSerasa(cpf: string, federalUnit = "SP"): Promise<SerasaR
     pickPath(json, ["score", "value"]) ??
     pickPath(json, ["score", "score"]) ??
     pickPath(json, ["positiveScore", "score"]) ??
+    pickPath(json, ["positiveScore", "value"]) ??
     pickPath(json, ["serasaScore", "value"]) ??
     pickPath(json, ["data", "score"]) ??
-    null;
+    deepFindScore(json);
 
   const score = typeof scoreRaw === "number"
     ? scoreRaw
     : Number.parseInt(String(scoreRaw ?? "0"), 10);
 
   if (!Number.isFinite(score) || score <= 0) {
-    console.error("Score não encontrado. Chaves no topo do JSON:", Object.keys(json ?? {}));
+    console.error("Score não encontrado. JSON Serasa:", JSON.stringify(json).substring(0, 2000));
     throw new Error("Resposta Serasa sem score válido (verifique os caminhos do JSON na doc do produto)");
   }
 
