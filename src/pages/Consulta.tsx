@@ -480,6 +480,68 @@ export default function Consulta() {
             </Card>
           )}
 
+          {/* Histórico de consultas deste CPF */}
+          {historico.length > 0 && (
+            <Card className="mt-6 shadow-card overflow-hidden">
+              <div className="h-1 bg-primary/60" />
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Histórico de consultas deste CPF</h2>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {historico.length} registro{historico.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-muted/60">
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Origem</TableHead>
+                        <TableHead className="text-right">Score</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {historico.map((h) => {
+                        const dt = new Date(h.created_at);
+                        const dataStr = dt.toLocaleString("pt-BR", {
+                          day: "2-digit", month: "2-digit", year: "numeric",
+                          hour: "2-digit", minute: "2-digit",
+                        });
+                        const statusLabel =
+                          h.status === "simulacao" ? "Simulação"
+                          : h.status === "cache" ? "Cache (3 meses)"
+                          : h.status === "sucesso" ? "Serasa"
+                          : h.status;
+                        const statusClass =
+                          h.status === "simulacao" ? "bg-accent/10 text-accent"
+                          : h.status === "cache" ? "bg-muted text-muted-foreground"
+                          : "bg-emerald-500/10 text-emerald-500";
+                        return (
+                          <TableRow key={h.id}>
+                            <TableCell className="text-muted-foreground">{dataStr}</TableCell>
+                            <TableCell>{h.nome ?? "—"}</TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+                                {statusLabel}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              {h.score ?? "—"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {aprovado && (
             <Card className="mt-6 shadow-card">
               <CardContent className="p-6">
