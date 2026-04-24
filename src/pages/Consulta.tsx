@@ -127,7 +127,7 @@ export default function Consulta() {
 
   const consultar = async () => {
     setBusy(true);
-    setResult(null); setConsultaId(null);
+    setResult(null); setConsultaId(null); setHistorico([]);
     setValorTotal(""); setValorEntrada(""); setParcelas(null);
     try {
       const payload: Record<string, unknown> = { cpf: cpf.replace(/\D/g, "") };
