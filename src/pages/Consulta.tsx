@@ -59,6 +59,20 @@ export default function Consulta() {
   const [empresasDisponiveis, setEmpresasDisponiveis] = useState<EmpresaOption[]>([]);
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
 
+  // Testes de homologação Serasa
+  const [homologBusy, setHomologBusy] = useState(false);
+  const [homologResults, setHomologResults] = useState<Array<{
+    cpf: string;
+    cenario: string;
+    ok: boolean;
+    nome?: string;
+    score?: number;
+    totalPendencias?: number;
+    somaPendencias?: number;
+    error?: string;
+    rawSnippet?: string;
+  }> | null>(null);
+
   // Simulação
   const [modoSimulacao, setModoSimulacao] = useState(false);
   const [simNome, setSimNome] = useState("");
