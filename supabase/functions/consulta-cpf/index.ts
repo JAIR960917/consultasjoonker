@@ -50,8 +50,9 @@ async function getSerasaToken(): Promise<string> {
     headers: {
       Authorization: `Basic ${basic}`,
       Accept: "application/json",
-      "Content-Length": "0",
+      "Content-Type": "application/x-www-form-urlencoded",
     },
+    body: "grant_type=client_credentials",
   });
 
   const text = await resp.text();
