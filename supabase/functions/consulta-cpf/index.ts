@@ -471,8 +471,30 @@ Deno.serve(async (req) => {
 
       if (cached) {
         fromCache = true;
+        // Se o cache foi salvo com nome placeholder ("Cliente") mas o raw tem o nome real,
+        // re-extrai do raw para corrigir caches antigos sem precisar reconsultar a Serasa.
+        let nomeFinal = cached.nome ?? "Cliente";
+        if ((!nomeFinal || nomeFinal === "Cliente") && cached.raw) {
+          const reportRoot = getPrimaryReport(cached.raw);
+          const nomeFromRaw =
+            pickPath(reportRoot, ["registration", "consumerName"]) ??
+            pickPath(reportRoot, ["registrationData", "name"]) ??
+            pickPath(reportRoot, ["registration", "name"]) ??
+            pickPath(reportRoot, ["consumer", "name"]) ??
+            pickPath(reportRoot, ["consumer", "fullName"]) ??
+            pickPath(reportRoot, ["personRegistrationData", "name"]) ??
+            pickPath(cached.raw, ["data", "name"]);
+          if (nomeFromRaw && typeof nomeFromRaw === "string" && nomeFromRaw.trim().length > 0) {
+            nomeFinal = nomeFromRaw.trim();
+            // Atualiza o cache em background para próximas consultas
+            await supabase
+              .from("consultas_cache")
+              .update({ nome: nomeFinal })
+              .eq("cpf", cpf);
+          }
+        }
         serasa = {
-          nome: cached.nome ?? "Cliente",
+          nome: nomeFinal,
           score: cached.score ?? 0,
           pendencias: (cached.pendencias as Pendencia[]) ?? [],
           totalPendencias: cached.total_pendencias ?? 0,
