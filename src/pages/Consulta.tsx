@@ -186,6 +186,64 @@ export default function Consulta() {
     }
   };
 
+  /** Roda os 3 CPFs de homologação Serasa em sequência e monta um resumo. */
+  const rodarTestesHomologacao = async () => {
+    const casos = [
+      { cpf: "00000000191", cenario: "Score baixo / com pendências" },
+      { cpf: "00000000272", cenario: "Score médio" },
+      { cpf: "00000000353", cenario: "Score alto / aprovado" },
+    ];
+    setHomologBusy(true);
+    setHomologResults(null);
+    const acumulado: NonNullable<typeof homologResults> = [];
+    try {
+      for (const caso of casos) {
+        try {
+          const { data, error } = await supabase.functions.invoke("consulta-cpf", {
+            body: { cpf: caso.cpf },
+          });
+          if (error) throw error;
+          const resp = data as {
+            error?: string;
+            notFound?: boolean;
+            nome?: string;
+            score?: number;
+            totalPendencias?: number;
+            somaPendencias?: number;
+          };
+          if (resp?.error && !resp?.notFound) throw new Error(resp.error);
+          acumulado.push({
+            cpf: caso.cpf,
+            cenario: caso.cenario,
+            ok: !resp?.notFound,
+            nome: resp?.nome,
+            score: resp?.score,
+            totalPendencias: resp?.totalPendencias,
+            somaPendencias: resp?.somaPendencias,
+            error: resp?.notFound ? "CPF não encontrado na base" : undefined,
+          });
+        } catch (e) {
+          acumulado.push({
+            cpf: caso.cpf,
+            cenario: caso.cenario,
+            ok: false,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      setHomologResults(acumulado);
+      const sucesso = acumulado.filter((r) => r.ok).length;
+      if (sucesso === casos.length) {
+        toast.success(`Homologação OK — ${sucesso}/${casos.length} CPFs respondidos`);
+      } else {
+        toast.warning(`Homologação parcial — ${sucesso}/${casos.length} CPFs OK`);
+      }
+    } finally {
+      setHomologBusy(false);
+    }
+  };
+
   // Aplica entrada sugerida sempre que valorTotal mudar
   useEffect(() => {
     if (result && settings && total > 0) {
