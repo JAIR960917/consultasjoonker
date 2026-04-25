@@ -104,7 +104,7 @@ export default function Empresas() {
 
   const openEdit = (e: Empresa) => {
     setEditing(e);
-    setForm({ nome: e.nome, cnpj: e.cnpj, cidade: e.cidade, slug: e.slug, ativo: e.ativo });
+    setForm({ nome: e.nome, cnpj: e.cnpj, cidade: e.cidade, slug: e.slug, ativo: e.ativo, telefone: e.telefone ?? "" });
     setDialogOpen(true);
   };
 
@@ -117,6 +117,7 @@ export default function Empresas() {
       cidade: form.cidade.trim(),
       slug: form.slug.trim().toUpperCase(),
       ativo: form.ativo,
+      telefone: form.telefone.replace(/\D/g, "") || null,
     };
     if (!payload.nome || !payload.cnpj || !payload.slug) {
       toast.error("Preencha nome, CNPJ e slug");
