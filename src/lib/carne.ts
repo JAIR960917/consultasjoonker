@@ -268,7 +268,11 @@ async function drawBoletoBlock(
   const descPrefix = opts.descricao ? `${opts.descricao} ` : "";
   doc.text(`${descPrefix}Parcela ${p.numero_parcela}/${p.total_parcelas}`, xComp + 4, cy + 16);
   doc.setFontSize(7.5);
-  doc.text("Após o vencimento, aplicar multa de R$ 0,20 e juros de 1,00% ao mês.", xComp + 4, cy + 28);
+  const aviso = doc.splitTextToSize(
+    "Após o vencimento, aplicar multa de R$ 0,20 e juros de 1,00% ao mês.",
+    bigW - 8,
+  );
+  doc.text(aviso, xComp + 4, cy + 28);
 
   const subLabels = [
     "(-) Desconto",
