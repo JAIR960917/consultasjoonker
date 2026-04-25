@@ -184,9 +184,9 @@ async function drawBoletoBlock(
   cell(doc, xRec, y, halfW, recRow, "Parcela/Plano", `${p.numero_parcela}/${p.total_parcelas}`, { bold: true });
   cell(doc, xRec + halfW, y, halfW, recRow, "Vencimento", fmtDateBR(p.vencimento), { bold: true, align: "right" });
   y += recRow;
-  cell(doc, xRec, y, colReciboW, recRow, "Nosso número", p.nosso_numero ?? p.cora_invoice_id ?? "—", { align: "right", valueSize: 7 });
+  cell(doc, xRec, y, colReciboW, recRow, "Nosso número", p.nosso_numero ?? "—", { align: "right", valueSize: 7 });
   y += recRow;
-  cell(doc, xRec, y, colReciboW, recRow, "Número do documento", p.numero_documento ?? p.cora_invoice_id?.slice(-9) ?? "—", { align: "right" });
+  cell(doc, xRec, y, colReciboW, recRow, "Número do documento", p.numero_documento ?? "—", { align: "right" });
   y += recRow;
   cell(doc, xRec, y, colReciboW, recRow, "(=) Valor do documento", fmtBRL(Number(p.valor)), { bold: true, align: "right" });
   y += recRow;
