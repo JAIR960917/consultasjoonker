@@ -30,10 +30,23 @@ interface Empresa {
   cidade: string;
   slug: string;
   ativo: boolean;
+  telefone: string | null;
   created_at: string;
 }
 
-const emptyForm = { nome: "", cnpj: "", cidade: "", slug: "", ativo: true };
+const emptyForm = { nome: "", cnpj: "", cidade: "", slug: "", ativo: true, telefone: "" };
+
+function maskPhoneLocal(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 10) {
+    return d
+      .replace(/^(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
+  }
+  return d
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
 
 function maskCnpj(v: string) {
   const d = v.replace(/\D/g, "").slice(0, 14);
