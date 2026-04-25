@@ -66,8 +66,12 @@ Deno.serve(async (req) => {
       if (!roleRow) return json({ ok: false, error: "Sem permissão" }, 403);
     }
 
-    if (!contrato.telefone) {
-      return json({ ok: false, error: "Contrato sem telefone para envio via SMS" }, 400);
+    // Telefone usado para envio do link via SMS/WhatsApp.
+    // Pode ser sobrescrito pelo vendedor no front (telefone da loja vs. cliente).
+    // O contrato.telefone (do cliente) NÃO é alterado — só muda quem recebe o link.
+    const telefoneParaEnvio = (body.telefone_envio?.trim() || contrato.telefone || "").trim();
+    if (!telefoneParaEnvio) {
+      return json({ ok: false, error: "Nenhum telefone informado para envio do link" }, 400);
     }
 
     // ---------- Carrega venda + template para gerar PDF idêntico ao da tela ----------
