@@ -185,10 +185,16 @@ export function ParcelasContrato({ contratoId, contratoAssinado }: {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
           {parcelas.some((p) => p.cora_invoice_id) && (
-            <Button variant="outline" size="sm" onClick={sincronizar} disabled={sincronizando}>
-              {sincronizando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-              Sincronizar status
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={sincronizar} disabled={sincronizando}>
+                {sincronizando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Sincronizar status
+              </Button>
+              <Button variant="outline" size="sm" onClick={baixarCarne} disabled={baixandoCarne}>
+                {baixandoCarne ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                Baixar carnê (PDF)
+              </Button>
+            </>
           )}
           {contratoAssinado && !todasEmitidas && (
             <Button onClick={emitir} disabled={emitindo} className="bg-gradient-primary">
