@@ -311,15 +311,18 @@ async function drawBoletoBlock(
 
   /* ============ COLUNA PIX ============ */
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  doc.text("Pague este boleto via PIX", xPix + colPixW / 2, by + headerH + 6, { align: "center" });
+  doc.setFontSize(7);
+  const pixTitle1 = "Pague este boleto";
+  const pixTitle2 = "via PIX";
+  doc.text(pixTitle1, xPix + colPixW / 2, by + headerH + 6, { align: "center" });
+  doc.text(pixTitle2, xPix + colPixW / 2, by + headerH + 14, { align: "center" });
 
   if (p.pix_emv) {
     try {
       const qr = await qrDataUrl(p.pix_emv);
-      const qrSize = Math.min(colPixW - 10, 70);
+      const qrSize = Math.min(colPixW - 8, 64);
       const qx = xPix + (colPixW - qrSize) / 2;
-      doc.addImage(qr, "PNG", qx, by + headerH + 12, qrSize, qrSize);
+      doc.addImage(qr, "PNG", qx, by + headerH + 18, qrSize, qrSize);
     } catch {
       /* ignore */
     }
