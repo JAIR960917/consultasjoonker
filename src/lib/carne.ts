@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import JsBarcode from "jsbarcode";
+import coraLogoUrl from "@/assets/cora-logo.jpg";
 
 export interface CarneParcela {
   numero_parcela: number;
@@ -12,6 +13,7 @@ export interface CarneParcela {
   pix_emv: string | null;
   cora_invoice_id: string | null;
   nosso_numero?: string | null;
+  numero_documento?: string | null;
 }
 
 export interface CarneEmpresa {
@@ -28,10 +30,12 @@ export interface CarneOptions {
   empresa: CarneEmpresa;
   pagador: CarnePagador;
   parcelas: CarneParcela[];
+  descricao?: string; // ex.: "Oculos"
+  data_emissao?: string; // YYYY-MM-DD
 }
 
 const fmtBRL = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const fmtDateBR = (iso: string) => {
   const d = new Date(iso + "T00:00:00");
@@ -47,40 +51,34 @@ const maskCpf = (s: string) => {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 };
 
-/** Gera dataURL PNG de QR Code (ECC M, ~140px). */
 async function qrDataUrl(text: string): Promise<string> {
   return await QRCode.toDataURL(text, {
     errorCorrectionLevel: "M",
     margin: 1,
-    width: 280,
+    width: 240,
     color: { dark: "#000000", light: "#FFFFFF" },
   });
 }
 
-/** Gera dataURL PNG do código de barras ITF (padrão boleto bancário) a partir da linha digitável. */
 function barcodeDataUrl(linhaDigitavel: string): string | null {
-  // Extrai só dígitos: a linha tem 47 dígitos -> converter em código de barras de 44 dígitos
   const digits = (linhaDigitavel || "").replace(/\D/g, "");
   if (digits.length !== 47) return null;
-  // Reorganiza 47 -> 44 (padrão FEBRABAN)
-  const campo1 = digits.slice(0, 9); // sem DV (pos 9)
-  const campo2 = digits.slice(10, 20); // sem DV (pos 20)
-  const campo3 = digits.slice(21, 31); // sem DV (pos 31)
+  const campo1 = digits.slice(0, 9);
+  const campo2 = digits.slice(10, 20);
+  const campo3 = digits.slice(21, 31);
   const dv = digits.slice(32, 33);
   const fatorVenc = digits.slice(33, 37);
   const valor = digits.slice(37, 47);
   const barcode44 =
     campo1.slice(0, 4) + dv + fatorVenc + valor + campo1.slice(4) + campo2 + campo3;
-
   if (barcode44.length !== 44) return null;
-
   try {
     const canvas = document.createElement("canvas");
     JsBarcode(canvas, barcode44, {
       format: "ITF",
       displayValue: false,
       height: 50,
-      width: 1.2,
+      width: 1.1,
       margin: 0,
     });
     return canvas.toDataURL("image/png");
@@ -89,256 +87,361 @@ function barcodeDataUrl(linhaDigitavel: string): string | null {
   }
 }
 
-/**
- * Gera o carnê: cada página A4 contém 1 boleto no layout da Cora (cabeçalho com
- * linha digitável, dados, valor, código de barras) + QR Code Pix ao lado.
- * Pronto para imprimir e recortar.
- */
+/* ---------------- Layout helpers ---------------- */
+
+function cell(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  label: string,
+  value: string,
+  opts?: { bold?: boolean; align?: "left" | "right"; valueSize?: number; border?: boolean },
+) {
+  if (opts?.border !== false) {
+    doc.setDrawColor(180);
+    doc.setLineWidth(0.3);
+    doc.rect(x, y, w, h);
+  }
+  if (label) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.5);
+    doc.setTextColor(90);
+    doc.text(label, x + 2, y + 5);
+  }
+  if (value) {
+    doc.setTextColor(0);
+    doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
+    doc.setFontSize(opts?.valueSize ?? 8);
+    const align = opts?.align ?? "left";
+    const tx = align === "right" ? x + w - 2 : x + 2;
+    doc.text(value, tx, y + h - 3, { align });
+  }
+}
+
+function dashedLine(doc: jsPDF, x1: number, y1: number, x2: number, y2: number) {
+  doc.setLineDashPattern([2, 2], 0);
+  doc.setDrawColor(150);
+  doc.setLineWidth(0.4);
+  doc.line(x1, y1, x2, y2);
+  doc.setLineDashPattern([], 0);
+  doc.setDrawColor(0);
+}
+
+function coraHeader(doc: jsPDF, x: number, y: number, logoImg: string) {
+  // Logo "C cora | 403-9 |"
+  try {
+    doc.addImage(logoImg, "JPEG", x, y, 28, 8);
+  } catch {
+    // fallback texto
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(232, 64, 95);
+    doc.text("cora", x, y + 7);
+  }
+  doc.setTextColor(120);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.text("| 403-9 |", x + 30, y + 6);
+  doc.setTextColor(0);
+}
+
+/* ---------------- Render boleto block ---------------- */
+
+async function drawBoletoBlock(
+  doc: jsPDF,
+  opts: CarneOptions,
+  p: CarneParcela,
+  logoImg: string,
+  bx: number, // top-left x
+  by: number, // top-left y
+  bw: number, // total width
+  bh: number, // total height
+) {
+  const { empresa, pagador } = opts;
+
+  // 3 colunas: recibo (esq) | compensação (centro) | pix (dir)
+  const colReciboW = bw * 0.18;
+  const colPixW = bw * 0.13;
+  const colCompW = bw - colReciboW - colPixW;
+
+  const xRec = bx;
+  const xComp = bx + colReciboW;
+  const xPix = bx + colReciboW + colCompW;
+
+  /* ============ COLUNA ESQUERDA: RECIBO DO PAGADOR ============ */
+  let y = by;
+  coraHeader(doc, xRec + 2, y + 2, logoImg);
+  y += 12;
+
+  const recH = bh - 12;
+  const recRow = recH / 11; // 11 sub-células aprox
+  const halfW = colReciboW / 2;
+
+  cell(doc, xRec, y, halfW, recRow, "Parcela/Plano", `${p.numero_parcela}/${p.total_parcelas}`, { bold: true });
+  cell(doc, xRec + halfW, y, halfW, recRow, "Vencimento", fmtDateBR(p.vencimento), { bold: true, align: "right" });
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow, "Nosso número", p.nosso_numero ?? p.cora_invoice_id ?? "—", { align: "right" });
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow, "Número do documento", p.numero_documento ?? p.cora_invoice_id?.slice(-9) ?? "—", { align: "right" });
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow, "(=) Valor do documento", fmtBRL(Number(p.valor)), { bold: true, align: "right" });
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow, "(-) Desconto", "");
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow, "(-) Outras deduções/Abatimento", "");
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow, "(+) Mora/Multa/Juros", "");
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow, "(+) Outros acréscimos", "");
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow, "(=) Valor cobrado", "");
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow, "Pagador", pagador.nome);
+  y += recRow;
+  cell(doc, xRec, y, colReciboW, recRow * 1, "Beneficiário", `${empresa.nome}\n${maskCnpj(empresa.cnpj)}`);
+  // último cell: nome+cnpj em duas linhas → desenha manualmente
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.text(maskCnpj(empresa.cnpj), xRec + 2, y + recRow - 3);
+
+  /* ============ DIVISÓRIA TRACEJADA ESQ↔CENTRO ============ */
+  dashedLine(doc, xComp, by, xComp, by + bh);
+
+  /* ============ COLUNA CENTRAL: FICHA DE COMPENSAÇÃO ============ */
+  // Header: logo + linha digitável à direita
+  coraHeader(doc, xComp + 4, by + 2, logoImg);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(p.linha_digitavel ?? "—", xComp + colCompW - 2, by + 8, { align: "right" });
+
+  let cy = by + 12;
+  const compRow = 14;
+
+  // Linha 1: Local de pagamento (full)
+  cell(doc, xComp, cy, colCompW, compRow, "Local de Pagamento", "Pagável em qualquer agência bancária");
+  cy += compRow;
+
+  // Linha 2: Beneficiário | CNPJ | Agência/Código
+  const c2a = colCompW * 0.50;
+  const c2b = colCompW * 0.27;
+  const c2c = colCompW - c2a - c2b;
+  cell(doc, xComp, cy, c2a, compRow, "Beneficiário", empresa.nome);
+  cell(doc, xComp + c2a, cy, c2b, compRow, "CNPJ/CPF do beneficiário", maskCnpj(empresa.cnpj));
+  cell(doc, xComp + c2a + c2b, cy, c2c, compRow, "Agência/Código do beneficiário", "0001", { align: "right" });
+  cy += compRow;
+
+  // Linha 3: Data doc | Nº doc | Espécie | Aceite | Nosso número
+  const c3 = [colCompW * 0.18, colCompW * 0.20, colCompW * 0.10, colCompW * 0.08];
+  c3.push(colCompW - c3.reduce((a, b) => a + b, 0));
+  let cx = xComp;
+  cell(doc, cx, cy, c3[0], compRow, "Data do documento", fmtDateBR(opts.data_emissao ?? new Date().toISOString().slice(0, 10))); cx += c3[0];
+  cell(doc, cx, cy, c3[1], compRow, "Número do documento", p.numero_documento ?? p.cora_invoice_id?.slice(-9) ?? "—"); cx += c3[1];
+  cell(doc, cx, cy, c3[2], compRow, "Espécie doc.", "DV"); cx += c3[2];
+  cell(doc, cx, cy, c3[3], compRow, "Aceite", "N"); cx += c3[3];
+  cell(doc, cx, cy, c3[4], compRow, "Nosso número", p.nosso_numero ?? p.cora_invoice_id ?? "—", { align: "right" });
+  cy += compRow;
+
+  // Linha 4: Carteira | Espécie moeda | Quantidade | Valor (sem (=) Valor doc à direita aqui — já é mostrado depois)
+  cx = xComp;
+  cell(doc, cx, cy, c3[0], compRow, "Carteira", "01"); cx += c3[0];
+  cell(doc, cx, cy, c3[1], compRow, "Espécie moeda", "R$"); cx += c3[1];
+  cell(doc, cx, cy, c3[2] + c3[3], compRow, "Quantidade", ""); cx += c3[2] + c3[3];
+  cell(doc, cx, cy, c3[4], compRow, "(=) Valor do documento", fmtBRL(Number(p.valor)), { bold: true, align: "right" });
+  cy += compRow;
+
+  // Bloco grande central com descrição (esquerda) e sub-rows à direita (deduções)
+  const bigW = c3[0] + c3[1] + c3[2] + c3[3];
+  const subRowH = 12;
+  const bigH = subRowH * 5;
+  // borda esquerda do bloco grande
+  doc.setDrawColor(180);
+  doc.setLineWidth(0.3);
+  doc.rect(xComp, cy, bigW, bigH);
+
+  // Descrição dentro do bloco grande
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(0);
+  const descPrefix = opts.descricao ? `${opts.descricao} ` : "";
+  doc.text(`${descPrefix}Parcela ${p.numero_parcela}/${p.total_parcelas}`, xComp + 3, cy + 18);
+  doc.setFontSize(7.5);
+  doc.text("Após o vencimento, aplicar multa de R$ 0,20 e juros de 1,00% ao mês.", xComp + 3, cy + 30);
+
+  // Sub-rows à direita (deduções/valor cobrado)
+  const subLabels = [
+    "(-) Desconto",
+    "(-) Outras deduções/Abatimentos",
+    "(+) Mora/Multa/Juros",
+    "(+) Outros acréscimos",
+    "(=) Valor cobrado",
+  ];
+  for (let i = 0; i < 5; i++) {
+    cell(doc, xComp + bigW, cy + subRowH * i, c3[4], subRowH, subLabels[i], "", { align: "right" });
+  }
+  cy += bigH;
+
+  // Linha Pagador (full no compensação)
+  cell(doc, xComp, cy, colCompW, compRow, "Pagador", `${pagador.nome} - CPF ${maskCpf(pagador.cpf)}`);
+  cy += compRow;
+
+  // Linha Sacador/Avalista
+  cell(doc, xComp, cy, colCompW, compRow, "Sacador/Avalista", "");
+  cy += compRow;
+
+  // Código de barras + autenticação mecânica
+  if (p.linha_digitavel) {
+    const bcUrl = barcodeDataUrl(p.linha_digitavel);
+    if (bcUrl) {
+      doc.addImage(bcUrl, "PNG", xComp + 2, cy + 2, colCompW * 0.65, 26);
+    }
+  }
+  doc.setFontSize(6.5);
+  doc.setTextColor(120);
+  doc.text("Autenticação mecânica - Ficha de compensação", xComp + 2, cy + 36);
+  doc.setTextColor(0);
+
+  /* ============ DIVISÓRIA TRACEJADA CENTRO↔PIX ============ */
+  dashedLine(doc, xPix, by, xPix, by + bh);
+
+  /* ============ COLUNA DIREITA: PIX ============ */
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.text("Pague este boleto via PIX", xPix + colPixW / 2, by + 16, { align: "center" });
+
+  if (p.pix_emv) {
+    try {
+      const qr = await qrDataUrl(p.pix_emv);
+      const qrSize = Math.min(colPixW - 8, 70);
+      const qx = xPix + (colPixW - qrSize) / 2;
+      doc.addImage(qr, "PNG", qx, by + 22, qrSize, qrSize);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/* ---------------- Top header (página 1 apenas) ---------------- */
+function drawTopHeader(
+  doc: jsPDF,
+  opts: CarneOptions,
+  logoImg: string,
+  margin: number,
+  pageW: number,
+) {
+  const y = margin;
+  doc.setTextColor(232, 64, 95);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("Essa é a sua cobrança,", margin, y + 12);
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(14);
+  doc.text(opts.pagador.nome, margin, y + 30);
+
+  // Logo central
+  try {
+    doc.addImage(logoImg, "JPEG", pageW / 2 - 30, y + 4, 60, 18);
+  } catch {
+    /* ignore */
+  }
+
+  // Beneficiário e descrição
+  doc.setTextColor(232, 64, 95);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Beneficiário", margin, y + 56);
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(opts.empresa.nome, margin, y + 70);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(`CNPJ ${maskCnpj(opts.empresa.cnpj)}`, margin, y + 82);
+
+  doc.setTextColor(232, 64, 95);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Descrição", margin, y + 100);
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(opts.descricao ?? "Cobrança", margin, y + 114);
+
+  // Data emissão
+  doc.setTextColor(232, 64, 95);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(
+    `Data de emissão: ${fmtDateBR(opts.data_emissao ?? new Date().toISOString().slice(0, 10))}`,
+    pageW - margin,
+    y + 56,
+    { align: "right" },
+  );
+  doc.setTextColor(0);
+}
+
+/* ---------------- Public API ---------------- */
+
+async function loadLogoDataUrl(): Promise<string> {
+  // jsPDF aceita o módulo importado direto se for dataURL/URL acessível.
+  // Convertemos para dataURL via fetch para garantir.
+  try {
+    const resp = await fetch(coraLogoUrl);
+    const blob = await resp.blob();
+    return await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return coraLogoUrl;
+  }
+}
+
 export async function buildCarnePdf(opts: CarneOptions): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 30;
+  const margin = 24;
+  const usableW = pageW - margin * 2;
 
-  for (let idx = 0; idx < opts.parcelas.length; idx++) {
-    if (idx > 0) doc.addPage();
-    await drawBoleto(doc, opts, opts.parcelas[idx], margin, pageW, pageH);
+  const logo = await loadLogoDataUrl();
+
+  // Layout: 3 boletos por página A4 (após o header da pág 1)
+  const headerH = 140; // só na 1ª página
+  const boletoH = 240; // altura de cada boleto
+
+  let cursorY = margin + headerH; // 1ª página com header
+  drawTopHeader(doc, opts, logo, margin, pageW);
+
+  for (let i = 0; i < opts.parcelas.length; i++) {
+    const remaining = pageH - margin - cursorY;
+    if (remaining < boletoH) {
+      doc.addPage();
+      cursorY = margin;
+    }
+    await drawBoletoBlock(doc, opts, opts.parcelas[i], logo, margin, cursorY, usableW, boletoH);
+    cursorY += boletoH;
+    // linha tracejada horizontal de recorte entre boletos
+    if (i < opts.parcelas.length - 1 && pageH - margin - cursorY >= boletoH) {
+      dashedLine(doc, margin, cursorY, pageW - margin, cursorY);
+    }
+    cursorY += 6;
   }
 
-  // Rodapé com numeração
+  // Rodapé numeração
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
     doc.setPage(i);
     doc.setFontSize(7);
-    doc.setTextColor(140, 140, 140);
-    doc.text(
-      `Página ${i} de ${total} • Recorte na linha tracejada`,
-      pageW / 2,
-      pageH - 12,
-      { align: "center" },
-    );
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(140);
+    doc.text(`Página ${i} de ${total}`, pageW - margin, pageH - 10, { align: "right" });
+    doc.setTextColor(0);
   }
   return doc;
-}
-
-async function drawBoleto(
-  doc: jsPDF,
-  { empresa, pagador }: CarneOptions,
-  p: CarneParcela,
-  margin: number,
-  pageW: number,
-  _pageH: number,
-) {
-  const x = margin;
-  let y = margin;
-  const w = pageW - margin * 2;
-
-  // ---------- Linha digitável ----------
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("BOLETO BANCÁRIO", x, y);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(
-    `Parcela ${p.numero_parcela}/${p.total_parcelas}`,
-    x + w,
-    y,
-    { align: "right" },
-  );
-  y += 14;
-
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.6);
-  doc.line(x, y, x + w, y);
-  y += 14;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text(p.linha_digitavel ?? "Linha digitável indisponível", x + w, y, {
-    align: "right",
-  });
-  y += 18;
-
-  // ---------- Bloco de campos (estilo Cora) ----------
-  const blockTop = y;
-  const colSplit = x + w * 0.62; // divisão para coluna Vencimento
-  const rowH = 28;
-
-  const drawCell = (
-    cx: number,
-    cy: number,
-    cw: number,
-    label: string,
-    value: string,
-    opts?: { bold?: boolean; align?: "left" | "right"; fontSize?: number },
-  ) => {
-    doc.setDrawColor(180);
-    doc.setLineWidth(0.4);
-    doc.rect(cx, cy, cw, rowH);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.5);
-    doc.setTextColor(80);
-    doc.text(label, cx + 3, cy + 7);
-    doc.setTextColor(0);
-    doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
-    doc.setFontSize(opts?.fontSize ?? 9);
-    const align = opts?.align ?? "left";
-    const tx = align === "right" ? cx + cw - 3 : cx + 3;
-    doc.text(value, tx, cy + 21, { align });
-  };
-
-  // Linha 1: Local de pagamento | Vencimento
-  drawCell(x, y, colSplit - x, "Local de Pagamento", "Pagável em qualquer agência bancária");
-  drawCell(colSplit, y, x + w - colSplit, "Vencimento", fmtDateBR(p.vencimento), {
-    bold: true,
-    align: "right",
-  });
-  y += rowH;
-
-  // Linha 2: Beneficiário | CNPJ | (vazio)
-  drawCell(x, y, colSplit - x, "Beneficiário", empresa.nome);
-  drawCell(colSplit, y, x + w - colSplit, "CPF/CNPJ do Beneficiário", maskCnpj(empresa.cnpj), {
-    align: "right",
-  });
-  y += rowH;
-
-  // Linha 3: Data documento | Nº documento | Espécie | Aceite | Nosso número
-  const c1 = (x + w - x) / 5;
-  drawCell(x, y, c1, "Data do Documento", fmtDateBR(new Date().toISOString().slice(0, 10)));
-  drawCell(x + c1, y, c1, "Nr. do Documento", p.cora_invoice_id?.slice(0, 12) ?? "—");
-  drawCell(x + c1 * 2, y, c1, "Espécie Doc", "DV");
-  drawCell(x + c1 * 3, y, c1 * 0.5, "Aceite", "N");
-  drawCell(x + c1 * 3.5, y, c1 * 1.5, "Nosso Número", p.nosso_numero ?? "—", {
-    align: "right",
-  });
-  y += rowH;
-
-  // Linha 4: Uso banco | Carteira | Espécie Moeda | Quantidade | Valor doc
-  drawCell(x, y, c1, "Uso do Banco", "");
-  drawCell(x + c1, y, c1, "Carteira", "01");
-  drawCell(x + c1 * 2, y, c1, "Espécie Moeda", "R$");
-  drawCell(x + c1 * 3, y, c1, "Quantidade Moeda", "");
-  drawCell(x + c1 * 4, y, c1, "(=) Valor do Documento", fmtBRL(Number(p.valor)), {
-    bold: true,
-    align: "right",
-  });
-  y += rowH;
-
-  // Bloco do pagador (caixa grande com 5 sub-linhas vazias à direita)
-  const bigH = rowH * 5;
-  const leftW = colSplit - x;
-  doc.rect(x, y, leftW, bigH);
-  // Sub-rótulos à direita (descontos/juros/multa/etc)
-  const subLabels = [
-    "(-) Desconto",
-    "(-) Outras Deduções/Abatimento",
-    "(+) Mora/Multa/Juros",
-    "(+) Outros Acréscimos",
-    "(=) Valor Cobrado",
-  ];
-  for (let i = 0; i < 5; i++) {
-    drawCell(colSplit, y + rowH * i, x + w - colSplit, subLabels[i], "", {
-      align: "right",
-    });
-  }
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6.5);
-  doc.setTextColor(80);
-  doc.text("Pagador", x + 3, y + 7);
-  doc.setTextColor(0);
-  doc.setFontSize(9);
-  doc.text(`${pagador.nome} - CPF ${maskCpf(pagador.cpf)}`, x + 3, y + 22);
-  doc.setFontSize(6.5);
-  doc.setTextColor(80);
-  doc.text("Sacador/Avalista", x + 3, y + 42);
-  doc.setTextColor(0);
-  y += bigH;
-
-  // ---------- Código de barras ----------
-  y += 6;
-  if (p.linha_digitavel) {
-    const bcUrl = barcodeDataUrl(p.linha_digitavel);
-    if (bcUrl) {
-      // largura padrão ~ 103mm; usamos ~ 360pt
-      doc.addImage(bcUrl, "PNG", x, y, 360, 50);
-    }
-  }
-  doc.setFontSize(7);
-  doc.setTextColor(120);
-  doc.text("Autenticação Mecânica - Ficha de Compensação", x + w, y + 50, {
-    align: "right",
-  });
-  doc.setTextColor(0);
-  y += 70;
-
-  // ---------- Linha tracejada (recorte) ----------
-  doc.setLineDashPattern([3, 3], 0);
-  doc.setDrawColor(140);
-  doc.line(x, y, x + w, y);
-  doc.setLineDashPattern([], 0);
-  doc.setDrawColor(0);
-  y += 16;
-
-  // ---------- Bloco PIX ----------
-  if (p.pix_emv) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text("Pague com PIX", x, y);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(80);
-    doc.text(
-      "Aponte a câmera do seu app bancário para o QR Code abaixo ou copie o código.",
-      x,
-      y + 12,
-    );
-    doc.setTextColor(0);
-
-    const qr = await qrDataUrl(p.pix_emv);
-    const qrSize = 130;
-    doc.addImage(qr, "PNG", x, y + 20, qrSize, qrSize);
-
-    // Dados ao lado do QR
-    const ix = x + qrSize + 16;
-    const iy = y + 28;
-    doc.setFontSize(8);
-    doc.setTextColor(80);
-    doc.text("Beneficiário", ix, iy);
-    doc.setTextColor(0);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(empresa.nome, ix, iy + 12);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(80);
-    doc.text("Valor", ix, iy + 28);
-    doc.setTextColor(0);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text(fmtBRL(Number(p.valor)), ix, iy + 42);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(80);
-    doc.text("Vencimento", ix, iy + 58);
-    doc.setTextColor(0);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(fmtDateBR(p.vencimento), ix, iy + 70);
-
-    // Código copia-e-cola (quebrado em linhas)
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(80);
-    doc.text("PIX Copia e Cola:", ix, iy + 90);
-    doc.setTextColor(0);
-    doc.setFont("courier", "normal");
-    doc.setFontSize(6.5);
-    const wrapped = doc.splitTextToSize(p.pix_emv, pageW - margin - ix);
-    doc.text(wrapped.slice(0, 4), ix, iy + 100);
-  }
 }
 
 export async function downloadCarnePdf(opts: CarneOptions, filename = "carne.pdf") {
