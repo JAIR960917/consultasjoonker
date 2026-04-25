@@ -198,11 +198,17 @@ export default function Contrato() {
         } else if ((contract as ContractRow).venda_id) {
           const { data: vendaEmp } = await supabase
             .from("vendas")
-            .select("empresa_id, empresas(telefone)")
+            .select("empresa_id")
             .eq("id", (contract as ContractRow).venda_id!)
             .maybeSingle();
-          // @ts-expect-error - relação aninhada
-          setEmpresaTelefone(vendaEmp?.empresas?.telefone ?? null);
+          if (vendaEmp?.empresa_id) {
+            const { data: emp } = await supabase
+              .from("empresas")
+              .select("telefone")
+              .eq("id", vendaEmp.empresa_id)
+              .maybeSingle();
+            setEmpresaTelefone(emp?.telefone ?? null);
+          }
         }
       }
       if (template) setTpl(template as TemplateRow);
