@@ -424,10 +424,10 @@ export async function buildCarnePdf(opts: CarneOptions): Promise<jsPDF> {
   const logo = await loadLogoDataUrl();
 
   // Layout: ~3 boletos por página A4 (após o header da pág 1)
-  const headerH = 140; // só na 1ª página
-  const boletoH = 220; // altura estimada de cada boleto
+  const topHeaderH = 130; // altura do "Essa é a sua cobrança" na pág 1
+  const boletoH = 250; // altura estimada de cada boleto
 
-  let cursorY = margin + headerH;
+  let cursorY = margin + topHeaderH;
   drawTopHeader(doc, opts, logo, margin, pageW);
 
   for (let i = 0; i < opts.parcelas.length; i++) {
