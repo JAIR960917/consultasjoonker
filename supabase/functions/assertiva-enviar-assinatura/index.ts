@@ -293,9 +293,10 @@ Deno.serve(async (req) => {
     console.info("autentica: PUT upload OK", putResp.status);
 
     // ---------- 6) Cria pedido ----------
-    const telefoneDigits = contrato.telefone.replace(/\D/g, "");
+    const telefoneDigits = telefoneParaEnvio.replace(/\D/g, "");
     const celular = telefoneDigits.length > 11 ? telefoneDigits.slice(-11) : telefoneDigits;
     const cpfDigits = contrato.cpf.replace(/\D/g, "");
+    console.info("autentica: enviando link para", { celular, escolhidoPeloVendedor: !!body.telefone_envio });
 
     const camposParte: any[] = [];
     if (cpfCampoId) camposParte.push({ id: cpfCampoId, valor: cpfDigits });
