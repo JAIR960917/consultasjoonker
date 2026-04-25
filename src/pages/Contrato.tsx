@@ -36,6 +36,7 @@ interface ContractRow {
   signature_data: { signed_pdf_url?: string } | null;
   created_at: string;
   venda_id: string | null;
+  empresa_id: string | null;
 }
 
 interface VendaInfo {
