@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2, Receipt, Copy, ExternalLink, RefreshCw, Zap } from "lucide-react";
+import { Loader2, Receipt, Copy, ExternalLink, RefreshCw, Zap, FileDown } from "lucide-react";
 import { brl } from "@/lib/finance";
+import { downloadCarnePdf } from "@/lib/carne";
 
 interface Parcela {
   id: string;
@@ -38,6 +39,7 @@ export function ParcelasContrato({ contratoId, contratoAssinado }: {
   const [loading, setLoading] = useState(true);
   const [emitindo, setEmitindo] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
+  const [baixandoCarne, setBaixandoCarne] = useState(false);
   const [intervalo, setIntervalo] = useState("30");
 
   const carregar = async () => {
