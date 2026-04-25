@@ -416,11 +416,11 @@ export async function buildCarnePdf(opts: CarneOptions): Promise<jsPDF> {
 
   const logo = await loadLogoDataUrl();
 
-  // Layout: 3 boletos por página A4 (após o header da pág 1)
+  // Layout: ~3 boletos por página A4 (após o header da pág 1)
   const headerH = 140; // só na 1ª página
-  const boletoH = 240; // altura de cada boleto
+  const boletoH = 220; // altura estimada de cada boleto
 
-  let cursorY = margin + headerH; // 1ª página com header
+  let cursorY = margin + headerH;
   drawTopHeader(doc, opts, logo, margin, pageW);
 
   for (let i = 0; i < opts.parcelas.length; i++) {
@@ -429,9 +429,8 @@ export async function buildCarnePdf(opts: CarneOptions): Promise<jsPDF> {
       doc.addPage();
       cursorY = margin;
     }
-    await drawBoletoBlock(doc, opts, opts.parcelas[i], logo, margin, cursorY, usableW, boletoH);
-    cursorY += boletoH;
-    // linha tracejada horizontal de recorte entre boletos
+    const usedH = await drawBoletoBlock(doc, opts, opts.parcelas[i], logo, margin, cursorY, usableW);
+    cursorY += usedH + 4;
     if (i < opts.parcelas.length - 1 && pageH - margin - cursorY >= boletoH) {
       dashedLine(doc, margin, cursorY, pageW - margin, cursorY);
     }
