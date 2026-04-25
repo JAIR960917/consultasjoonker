@@ -185,17 +185,51 @@ export default function Contrato() {
             });
           }
         }
+
+        // Carrega telefone da empresa para opção de envio do link de assinatura
+        const empresaIdResolve = (contract as ContractRow).empresa_id;
+        if (empresaIdResolve) {
+          const { data: emp } = await supabase
+            .from("empresas")
+            .select("telefone")
+            .eq("id", empresaIdResolve)
+            .maybeSingle();
+          setEmpresaTelefone(emp?.telefone ?? null);
+        } else if ((contract as ContractRow).venda_id) {
+          const { data: vendaEmp } = await supabase
+            .from("vendas")
+            .select("empresa_id, empresas(telefone)")
+            .eq("id", (contract as ContractRow).venda_id!)
+            .maybeSingle();
+          // @ts-expect-error - relação aninhada
+          setEmpresaTelefone(vendaEmp?.empresas?.telefone ?? null);
+        }
       }
       if (template) setTpl(template as TemplateRow);
     })();
   }, [id]);
 
-  const handleStartSignature = async () => {
+  const handleStartSignature = () => {
     if (!c) return;
+    // Abre o diálogo para o vendedor escolher o destinatário do link
+    setPhoneChoice(empresaTelefone ? "empresa" : "cliente");
+    setPhoneChoiceOpen(true);
+  };
+
+  const submitSignature = async () => {
+    if (!c) return;
+    if (phoneChoice === "empresa" && !empresaTelefone) {
+      toast.error("A empresa não tem telefone cadastrado", {
+        description: "Cadastre o telefone na página Empresas ou envie para o cliente.",
+      });
+      return;
+    }
+    const telefoneEnvio = phoneChoice === "empresa" ? empresaTelefone! : c.telefone;
+    setPhoneChoiceOpen(false);
     setSigning(true);
 
     const { data, error } = await supabase.functions.invoke("assertiva-enviar-assinatura", {
-      body: { contrato_id: c.id },
+      body: { contrato_id: c.id, telefone_envio: telefoneEnvio },
     });
 
     setSigning(false);
@@ -214,7 +248,9 @@ export default function Contrato() {
       signature_provider: "assertiva",
     });
     toast.success("Contrato enviado", {
-      description: "O cliente receberá o link de assinatura via WhatsApp.",
+      description: phoneChoice === "empresa"
+        ? "O link foi enviado para o WhatsApp da loja."
+        : "O cliente receberá o link de assinatura via WhatsApp.",
     });
     setSignDialog(true);
   };
