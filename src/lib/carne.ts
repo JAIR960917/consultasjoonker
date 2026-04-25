@@ -178,7 +178,7 @@ async function drawBoletoBlock(
 
   /* ============ RECIBO DO PAGADOR ============ */
   let y = by + headerH;
-  const recRow = 14;
+  const recRow = 16;
   const halfW = colReciboW / 2;
 
   cell(doc, xRec, y, halfW, recRow, "Parcela/Plano", `${p.numero_parcela}/${p.total_parcelas}`, { bold: true });
@@ -217,7 +217,7 @@ async function drawBoletoBlock(
 
   /* ============ FICHA DE COMPENSAÇÃO ============ */
   let cy = by + headerH;
-  const compRow = 14;
+  const compRow = 16;
 
   // Linha 1: Local de pagamento | Vencimento (à direita)
   const c1L = colCompW * 0.78;
@@ -256,7 +256,7 @@ async function drawBoletoBlock(
 
   // Bloco grande (descrição + sub-rows à direita)
   const bigW = c3[0] + c3[1] + c3[2] + c3[3];
-  const subRowH = 14;
+  const subRowH = 16;
   const bigH = subRowH * 5;
   doc.setDrawColor(180);
   doc.setLineWidth(0.3);
