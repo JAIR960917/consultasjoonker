@@ -22,7 +22,7 @@ const corsHeaders = {
 const ASSERTIVA_BASE = "https://api.assertivasolucoes.com.br";
 const AUTH_BASE = `${ASSERTIVA_BASE}/autentica`;
 
-interface BodyInput { contrato_id: string }
+interface BodyInput { contrato_id: string; telefone_envio?: string }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
