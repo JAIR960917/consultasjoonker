@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2, Receipt, Copy, ExternalLink, RefreshCw, Zap } from "lucide-react";
+import { Loader2, Receipt, Copy, ExternalLink, RefreshCw, Zap, FileDown } from "lucide-react";
 import { brl } from "@/lib/finance";
+import { downloadCarnePdf } from "@/lib/carne";
 
 interface Parcela {
   id: string;
@@ -38,6 +39,7 @@ export function ParcelasContrato({ contratoId, contratoAssinado }: {
   const [loading, setLoading] = useState(true);
   const [emitindo, setEmitindo] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
+  const [baixandoCarne, setBaixandoCarne] = useState(false);
   const [intervalo, setIntervalo] = useState("30");
 
   const carregar = async () => {
@@ -93,6 +95,74 @@ export function ParcelasContrato({ contratoId, contratoAssinado }: {
     toast.success("Copiado");
   };
 
+  const baixarCarne = async () => {
+    const emitidas = parcelas.filter((p) => p.cora_invoice_id);
+    if (emitidas.length === 0) {
+      toast.error("Nenhum boleto emitido para gerar o carnê");
+      return;
+    }
+    setBaixandoCarne(true);
+    try {
+      // Carrega contrato → empresa + pagador
+      const { data: contrato, error: cErr } = await supabase
+        .from("contracts")
+        .select("nome, cpf, empresa_id")
+        .eq("id", contratoId)
+        .maybeSingle();
+      if (cErr || !contrato) throw new Error(cErr?.message ?? "Contrato não encontrado");
+
+      let empresaNome = "Empresa";
+      let empresaCnpj = "";
+      if (contrato.empresa_id) {
+        const { data: emp } = await supabase
+          .from("empresas")
+          .select("nome, cnpj")
+          .eq("id", contrato.empresa_id)
+          .maybeSingle();
+        if (emp) {
+          empresaNome = emp.nome;
+          empresaCnpj = emp.cnpj ?? "";
+        }
+      }
+      if (!empresaCnpj) {
+        // fallback no template global
+        const { data: tpl } = await supabase
+          .from("contract_template")
+          .select("company_name, company_cnpj")
+          .maybeSingle();
+        if (tpl) {
+          empresaNome = empresaNome || tpl.company_name;
+          empresaCnpj = tpl.company_cnpj ?? "";
+        }
+      }
+
+      const safeName = (contrato.nome || "cliente").replace(/[^\w]+/g, "_").toLowerCase();
+      await downloadCarnePdf(
+        {
+          empresa: { nome: empresaNome, cnpj: empresaCnpj },
+          pagador: { nome: contrato.nome, cpf: contrato.cpf },
+          parcelas: emitidas.map((p) => ({
+            numero_parcela: p.numero_parcela,
+            total_parcelas: p.total_parcelas,
+            valor: Number(p.valor),
+            vencimento: p.vencimento,
+            linha_digitavel: p.linha_digitavel,
+            codigo_barras: null,
+            pix_emv: p.pix_emv,
+            cora_invoice_id: p.cora_invoice_id,
+          })),
+        },
+        `carne_${safeName}.pdf`,
+      );
+      toast.success("Carnê gerado");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("Falha ao gerar carnê", { description: msg });
+    } finally {
+      setBaixandoCarne(false);
+    }
+  };
+
   const naoEmitidas = parcelas.filter((p) => !p.cora_invoice_id).length;
   const todasEmitidas = parcelas.length > 0 && naoEmitidas === 0;
 
@@ -115,10 +185,16 @@ export function ParcelasContrato({ contratoId, contratoAssinado }: {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
           {parcelas.some((p) => p.cora_invoice_id) && (
-            <Button variant="outline" size="sm" onClick={sincronizar} disabled={sincronizando}>
-              {sincronizando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-              Sincronizar status
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={sincronizar} disabled={sincronizando}>
+                {sincronizando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Sincronizar status
+              </Button>
+              <Button variant="outline" size="sm" onClick={baixarCarne} disabled={baixandoCarne}>
+                {baixandoCarne ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                Baixar carnê (PDF)
+              </Button>
+            </>
           )}
           {contratoAssinado && !todasEmitidas && (
             <Button onClick={emitir} disabled={emitindo} className="bg-gradient-primary">
