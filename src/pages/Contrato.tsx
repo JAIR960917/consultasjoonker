@@ -65,6 +65,9 @@ export default function Contrato() {
   const [deleting, setDeleting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [downloadingSigned, setDownloadingSigned] = useState(false);
+  const [phoneChoiceOpen, setPhoneChoiceOpen] = useState(false);
+  const [phoneChoice, setPhoneChoice] = useState<"cliente" | "empresa">("cliente");
+  const [empresaTelefone, setEmpresaTelefone] = useState<string | null>(null);
 
   const handleDownloadSigned = async () => {
     if (!c) return;
