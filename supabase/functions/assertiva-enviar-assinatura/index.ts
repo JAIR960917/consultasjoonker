@@ -22,7 +22,7 @@ const corsHeaders = {
 const ASSERTIVA_BASE = "https://api.assertivasolucoes.com.br";
 const AUTH_BASE = `${ASSERTIVA_BASE}/autentica`;
 
-interface BodyInput { contrato_id: string }
+interface BodyInput { contrato_id: string; telefone_envio?: string }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -66,8 +66,12 @@ Deno.serve(async (req) => {
       if (!roleRow) return json({ ok: false, error: "Sem permissão" }, 403);
     }
 
-    if (!contrato.telefone) {
-      return json({ ok: false, error: "Contrato sem telefone para envio via SMS" }, 400);
+    // Telefone usado para envio do link via SMS/WhatsApp.
+    // Pode ser sobrescrito pelo vendedor no front (telefone da loja vs. cliente).
+    // O contrato.telefone (do cliente) NÃO é alterado — só muda quem recebe o link.
+    const telefoneParaEnvio = (body.telefone_envio?.trim() || contrato.telefone || "").trim();
+    if (!telefoneParaEnvio) {
+      return json({ ok: false, error: "Nenhum telefone informado para envio do link" }, 400);
     }
 
     // ---------- Carrega venda + template para gerar PDF idêntico ao da tela ----------
@@ -289,9 +293,10 @@ Deno.serve(async (req) => {
     console.info("autentica: PUT upload OK", putResp.status);
 
     // ---------- 6) Cria pedido ----------
-    const telefoneDigits = contrato.telefone.replace(/\D/g, "");
+    const telefoneDigits = telefoneParaEnvio.replace(/\D/g, "");
     const celular = telefoneDigits.length > 11 ? telefoneDigits.slice(-11) : telefoneDigits;
     const cpfDigits = contrato.cpf.replace(/\D/g, "");
+    console.info("autentica: enviando link para", { celular, escolhidoPeloVendedor: !!body.telefone_envio });
 
     const camposParte: any[] = [];
     if (cpfCampoId) camposParte.push({ id: cpfCampoId, valor: cpfDigits });

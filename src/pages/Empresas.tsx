@@ -30,10 +30,23 @@ interface Empresa {
   cidade: string;
   slug: string;
   ativo: boolean;
+  telefone: string | null;
   created_at: string;
 }
 
-const emptyForm = { nome: "", cnpj: "", cidade: "", slug: "", ativo: true };
+const emptyForm = { nome: "", cnpj: "", cidade: "", slug: "", ativo: true, telefone: "" };
+
+function maskPhoneLocal(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 10) {
+    return d
+      .replace(/^(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
+  }
+  return d
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
 
 function maskCnpj(v: string) {
   const d = v.replace(/\D/g, "").slice(0, 14);
@@ -91,7 +104,7 @@ export default function Empresas() {
 
   const openEdit = (e: Empresa) => {
     setEditing(e);
-    setForm({ nome: e.nome, cnpj: e.cnpj, cidade: e.cidade, slug: e.slug, ativo: e.ativo });
+    setForm({ nome: e.nome, cnpj: e.cnpj, cidade: e.cidade, slug: e.slug, ativo: e.ativo, telefone: e.telefone ?? "" });
     setDialogOpen(true);
   };
 
@@ -104,6 +117,7 @@ export default function Empresas() {
       cidade: form.cidade.trim(),
       slug: form.slug.trim().toUpperCase(),
       ativo: form.ativo,
+      telefone: form.telefone.replace(/\D/g, "") || null,
     };
     if (!payload.nome || !payload.cnpj || !payload.slug) {
       toast.error("Preencha nome, CNPJ e slug");
@@ -286,6 +300,17 @@ export default function Empresas() {
                   onChange={(e) => setForm({ ...form, cidade: e.target.value })}
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Telefone / WhatsApp da loja</Label>
+              <Input
+                value={maskPhoneLocal(form.telefone)}
+                onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+                placeholder="(11) 91234-5678"
+              />
+              <p className="text-xs text-muted-foreground">
+                Usado quando o vendedor escolher enviar o link de assinatura para o número da loja em vez do número do cliente.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label>Slug (A-Z, 0-9, _)</Label>

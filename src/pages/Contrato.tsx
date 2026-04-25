@@ -8,6 +8,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, PenLine, FileDown, ArrowLeft, CheckCircle2, ShieldCheck, Trash2, RefreshCw } from "lucide-react";
@@ -31,6 +36,7 @@ interface ContractRow {
   signature_data: { signed_pdf_url?: string } | null;
   created_at: string;
   venda_id: string | null;
+  empresa_id: string | null;
 }
 
 interface VendaInfo {
@@ -59,6 +65,9 @@ export default function Contrato() {
   const [deleting, setDeleting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [downloadingSigned, setDownloadingSigned] = useState(false);
+  const [phoneChoiceOpen, setPhoneChoiceOpen] = useState(false);
+  const [phoneChoice, setPhoneChoice] = useState<"cliente" | "empresa">("cliente");
+  const [empresaTelefone, setEmpresaTelefone] = useState<string | null>(null);
 
   const handleDownloadSigned = async () => {
     if (!c) return;
@@ -176,17 +185,57 @@ export default function Contrato() {
             });
           }
         }
+
+        // Carrega telefone da empresa para opção de envio do link de assinatura
+        const empresaIdResolve = (contract as ContractRow).empresa_id;
+        if (empresaIdResolve) {
+          const { data: emp } = await supabase
+            .from("empresas")
+            .select("telefone")
+            .eq("id", empresaIdResolve)
+            .maybeSingle();
+          setEmpresaTelefone(emp?.telefone ?? null);
+        } else if ((contract as ContractRow).venda_id) {
+          const { data: vendaEmp } = await supabase
+            .from("vendas")
+            .select("empresa_id")
+            .eq("id", (contract as ContractRow).venda_id!)
+            .maybeSingle();
+          if (vendaEmp?.empresa_id) {
+            const { data: emp } = await supabase
+              .from("empresas")
+              .select("telefone")
+              .eq("id", vendaEmp.empresa_id)
+              .maybeSingle();
+            setEmpresaTelefone(emp?.telefone ?? null);
+          }
+        }
       }
       if (template) setTpl(template as TemplateRow);
     })();
   }, [id]);
 
-  const handleStartSignature = async () => {
+  const handleStartSignature = () => {
     if (!c) return;
+    // Abre o diálogo para o vendedor escolher o destinatário do link
+    setPhoneChoice(empresaTelefone ? "empresa" : "cliente");
+    setPhoneChoiceOpen(true);
+  };
+
+  const submitSignature = async () => {
+    if (!c) return;
+    if (phoneChoice === "empresa" && !empresaTelefone) {
+      toast.error("A empresa não tem telefone cadastrado", {
+        description: "Cadastre o telefone na página Empresas ou envie para o cliente.",
+      });
+      return;
+    }
+    const telefoneEnvio = phoneChoice === "empresa" ? empresaTelefone! : c.telefone;
+    setPhoneChoiceOpen(false);
     setSigning(true);
 
     const { data, error } = await supabase.functions.invoke("assertiva-enviar-assinatura", {
-      body: { contrato_id: c.id },
+      body: { contrato_id: c.id, telefone_envio: telefoneEnvio },
     });
 
     setSigning(false);
@@ -205,7 +254,9 @@ export default function Contrato() {
       signature_provider: "assertiva",
     });
     toast.success("Contrato enviado", {
-      description: "O cliente receberá o link de assinatura via WhatsApp.",
+      description: phoneChoice === "empresa"
+        ? "O link foi enviado para o WhatsApp da loja."
+        : "O cliente receberá o link de assinatura via WhatsApp.",
     });
     setSignDialog(true);
   };
@@ -446,6 +497,67 @@ export default function Contrato() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={phoneChoiceOpen} onOpenChange={setPhoneChoiceOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Para qual número enviar o link?</DialogTitle>
+            <DialogDescription>
+              Escolha para qual WhatsApp a Assertiva deve enviar o link de assinatura. O telefone do cliente continua salvo na promissória normalmente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <RadioGroup
+            value={phoneChoice}
+            onValueChange={(v) => setPhoneChoice(v as "cliente" | "empresa")}
+            className="space-y-2"
+          >
+            <label
+              htmlFor="phone-empresa"
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+                phoneChoice === "empresa" ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+              } ${!empresaTelefone ? "opacity-60" : ""}`}
+            >
+              <RadioGroupItem id="phone-empresa" value="empresa" disabled={!empresaTelefone} className="mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Telefone da loja</p>
+                <p className="text-xs text-muted-foreground">
+                  {empresaTelefone
+                    ? `O link irá para ${empresaTelefone}`
+                    : "Nenhum telefone cadastrado para a empresa. Cadastre em Empresas."}
+                </p>
+              </div>
+            </label>
+
+            <label
+              htmlFor="phone-cliente"
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+                phoneChoice === "cliente" ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+              }`}
+            >
+              <RadioGroupItem id="phone-cliente" value="cliente" className="mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Telefone do cliente</p>
+                <p className="text-xs text-muted-foreground">
+                  {c.telefone ? `O link irá para ${c.telefone}` : "Cliente sem telefone cadastrado."}
+                </p>
+              </div>
+            </label>
+          </RadioGroup>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPhoneChoiceOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={submitSignature}
+              disabled={signing || (phoneChoice === "empresa" && !empresaTelefone) || (phoneChoice === "cliente" && !c.telefone)}
+              className="bg-gradient-primary"
+            >
+              {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PenLine className="mr-2 h-4 w-4" />}
+              Enviar para assinatura
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
