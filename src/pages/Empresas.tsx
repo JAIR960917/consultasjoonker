@@ -302,6 +302,17 @@ export default function Empresas() {
               </div>
             </div>
             <div className="space-y-1.5">
+              <Label>Telefone / WhatsApp da loja</Label>
+              <Input
+                value={maskPhoneLocal(form.telefone)}
+                onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+                placeholder="(11) 91234-5678"
+              />
+              <p className="text-xs text-muted-foreground">
+                Usado quando o vendedor escolher enviar o link de assinatura para o número da loja em vez do número do cliente.
+              </p>
+            </div>
+            <div className="space-y-1.5">
               <Label>Slug (A-Z, 0-9, _)</Label>
               <Input
                 required
