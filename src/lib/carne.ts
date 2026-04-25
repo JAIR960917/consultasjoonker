@@ -159,26 +159,25 @@ async function drawBoletoBlock(
 ) {
   const { empresa, pagador } = opts;
 
-  // 3 colunas: recibo (esq) | compensação (centro) | pix (dir)
-  const colReciboW = bw * 0.18;
-  const colPixW = bw * 0.13;
-  const colCompW = bw - colReciboW - colPixW;
+  // 2 colunas: recibo (esq ~22%) | ficha de compensação (dir ~78%)
+  const colReciboW = bw * 0.22;
+  const colCompW = bw - colReciboW;
 
   const xRec = bx;
   const xComp = bx + colReciboW;
-  const xPix = bx + colReciboW + colCompW;
 
-  // Header row (logo Cora + linha digitável)
+  // Header row (logo Cora em cada coluna + linha digitável à direita)
   const headerH = 14;
   coraHeader(doc, xRec + 2, by + 3, logoImg);
   coraHeader(doc, xComp + 4, by + 3, logoImg);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
+  doc.setTextColor(0);
   doc.text(p.linha_digitavel ?? "—", xComp + colCompW - 2, by + 9, { align: "right" });
 
-  /* ============ RECIBO DO PAGADOR ============ */
+  /* ============ RECIBO DO PAGADOR (esquerda) ============ */
   let y = by + headerH;
-  const recRow = 16;
+  const recRow = 14;
   const halfW = colReciboW / 2;
 
   cell(doc, xRec, y, halfW, recRow, "Parcela/Plano", `${p.numero_parcela}/${p.total_parcelas}`, { bold: true });
@@ -202,32 +201,31 @@ async function drawBoletoBlock(
   y += recRow;
   cell(doc, xRec, y, colReciboW, recRow, "Pagador", pagador.nome, { valueSize: 7 });
   y += recRow;
-  // Beneficiário em célula maior (nome + cnpj)
-  cell(doc, xRec, y, colReciboW, recRow * 1.4, "Beneficiário", "", { border: true });
+  cell(doc, xRec, y, colReciboW, recRow * 1.6, "Beneficiário", "", { border: true });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(0);
   doc.text(empresa.nome, xRec + 2, y + 12);
-  doc.text(maskCnpj(empresa.cnpj), xRec + 2, y + 19);
+  doc.text(maskCnpj(empresa.cnpj), xRec + 2, y + 20);
 
-  const recH = (y + recRow * 1.4) - by;
+  const recH = (y + recRow * 1.6) - by;
 
   /* ============ DIVISÓRIA TRACEJADA ESQ↔CENTRO ============ */
   dashedLine(doc, xComp, by, xComp, by + recH);
 
   /* ============ FICHA DE COMPENSAÇÃO ============ */
   let cy = by + headerH;
-  const compRow = 16;
+  const compRow = 14;
 
   // Linha 1: Local de pagamento | Vencimento (à direita)
-  const c1L = colCompW * 0.78;
+  const c1L = colCompW * 0.80;
   cell(doc, xComp, cy, c1L, compRow, "Local de Pagamento", "Pagável em qualquer agência bancária");
   cell(doc, xComp + c1L, cy, colCompW - c1L, compRow, "Vencimento", fmtDateBR(p.vencimento), { bold: true, align: "right" });
   cy += compRow;
 
   // Linha 2: Beneficiário | CNPJ | Agência/Código
-  const c2a = colCompW * 0.50;
-  const c2b = colCompW * 0.27;
+  const c2a = colCompW * 0.55;
+  const c2b = colCompW * 0.25;
   const c2c = colCompW - c2a - c2b;
   cell(doc, xComp, cy, c2a, compRow, "Beneficiário", empresa.nome);
   cell(doc, xComp + c2a, cy, c2b, compRow, "CNPJ/CPF do beneficiário", maskCnpj(empresa.cnpj), { align: "right" });
@@ -256,7 +254,7 @@ async function drawBoletoBlock(
 
   // Bloco grande (descrição + sub-rows à direita)
   const bigW = c3[0] + c3[1] + c3[2] + c3[3];
-  const subRowH = 16;
+  const subRowH = 14;
   const bigH = subRowH * 5;
   doc.setDrawColor(180);
   doc.setLineWidth(0.3);
@@ -266,13 +264,13 @@ async function drawBoletoBlock(
   doc.setFontSize(8);
   doc.setTextColor(0);
   const descPrefix = opts.descricao ? `${opts.descricao} ` : "";
-  doc.text(`${descPrefix}Parcela ${p.numero_parcela}/${p.total_parcelas}`, xComp + 4, cy + 16);
+  doc.text(`${descPrefix}Parcela ${p.numero_parcela}/${p.total_parcelas}`, xComp + 4, cy + 14);
   doc.setFontSize(7.5);
   const aviso = doc.splitTextToSize(
     "Após o vencimento, aplicar multa de R$ 0,20 e juros de 1,00% ao mês.",
     bigW - 8,
   );
-  doc.text(aviso, xComp + 4, cy + 28);
+  doc.text(aviso, xComp + 4, cy + 26);
 
   const subLabels = [
     "(-) Desconto",
@@ -292,16 +290,38 @@ async function drawBoletoBlock(
 
   // Sacador/Avalista
   cell(doc, xComp, cy, colCompW, compRow, "Sacador/Avalista", "");
-  cy += compRow + 2;
+  cy += compRow + 4;
+
+  /* ===== Faixa final: código de barras (esq) + QR Pix (dir) ===== */
+  const qrBoxW = colCompW * 0.16;
+  const bcW = colCompW - qrBoxW - 6;
+  const bcH = 36;
 
   // Código de barras
   if (p.linha_digitavel) {
     const bcUrl = barcodeDataUrl(p.linha_digitavel);
     if (bcUrl) {
-      doc.addImage(bcUrl, "PNG", xComp + 2, cy, colCompW * 0.65, 28);
+      doc.addImage(bcUrl, "PNG", xComp + 2, cy, bcW, bcH);
     }
   }
-  cy += 30;
+
+  // QR Pix à direita
+  if (p.pix_emv) {
+    try {
+      const qr = await qrDataUrl(p.pix_emv);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(0);
+      doc.text("Pague este boleto via PIX", xComp + colCompW - qrBoxW / 2, cy - 2, { align: "center" });
+      const qrSize = Math.min(qrBoxW - 4, bcH);
+      const qx = xComp + colCompW - qrBoxW + (qrBoxW - qrSize) / 2;
+      doc.addImage(qr, "PNG", qx, cy, qrSize, qrSize);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  cy += bcH + 2;
   doc.setFontSize(6.5);
   doc.setTextColor(120);
   doc.text("Autenticação mecânica - Ficha de compensação", xComp + 2, cy + 6);
@@ -309,28 +329,6 @@ async function drawBoletoBlock(
 
   const compH = (cy + 10) - by;
   const blockH = Math.max(recH, compH);
-
-  /* ============ DIVISÓRIA TRACEJADA CENTRO↔PIX ============ */
-  dashedLine(doc, xPix, by, xPix, by + blockH);
-
-  /* ============ COLUNA PIX ============ */
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  const pixTitle1 = "Pague este boleto";
-  const pixTitle2 = "via PIX";
-  doc.text(pixTitle1, xPix + colPixW / 2, by + headerH + 6, { align: "center" });
-  doc.text(pixTitle2, xPix + colPixW / 2, by + headerH + 14, { align: "center" });
-
-  if (p.pix_emv) {
-    try {
-      const qr = await qrDataUrl(p.pix_emv);
-      const qrSize = Math.min(colPixW - 8, 64);
-      const qx = xPix + (colPixW - qrSize) / 2;
-      doc.addImage(qr, "PNG", qx, by + headerH + 18, qrSize, qrSize);
-    } catch {
-      /* ignore */
-    }
-  }
 
   return blockH;
 }
