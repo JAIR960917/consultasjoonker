@@ -184,9 +184,9 @@ async function drawBoletoBlock(
   cell(doc, xRec, y, halfW, recRow, "Parcela/Plano", `${p.numero_parcela}/${p.total_parcelas}`, { bold: true });
   cell(doc, xRec + halfW, y, halfW, recRow, "Vencimento", fmtDateBR(p.vencimento), { bold: true, align: "right" });
   y += recRow;
-  cell(doc, xRec, y, colReciboW, recRow, "Nosso número", p.nosso_numero ?? p.cora_invoice_id ?? "—", { align: "right", valueSize: 7 });
+  cell(doc, xRec, y, colReciboW, recRow, "Nosso número", p.nosso_numero ?? "—", { align: "right", valueSize: 7 });
   y += recRow;
-  cell(doc, xRec, y, colReciboW, recRow, "Número do documento", p.numero_documento ?? p.cora_invoice_id?.slice(-9) ?? "—", { align: "right" });
+  cell(doc, xRec, y, colReciboW, recRow, "Número do documento", p.numero_documento ?? "—", { align: "right" });
   y += recRow;
   cell(doc, xRec, y, colReciboW, recRow, "(=) Valor do documento", fmtBRL(Number(p.valor)), { bold: true, align: "right" });
   y += recRow;
@@ -239,10 +239,10 @@ async function drawBoletoBlock(
   c3.push(colCompW - c3.reduce((a, b) => a + b, 0));
   let cx = xComp;
   cell(doc, cx, cy, c3[0], compRow, "Data do documento", fmtDateBR(opts.data_emissao ?? new Date().toISOString().slice(0, 10))); cx += c3[0];
-  cell(doc, cx, cy, c3[1], compRow, "Número do documento", p.numero_documento ?? p.cora_invoice_id?.slice(-9) ?? "—"); cx += c3[1];
+  cell(doc, cx, cy, c3[1], compRow, "Número do documento", p.numero_documento ?? "—"); cx += c3[1];
   cell(doc, cx, cy, c3[2], compRow, "Espécie doc.", "DV"); cx += c3[2];
   cell(doc, cx, cy, c3[3], compRow, "Aceite", "N"); cx += c3[3];
-  cell(doc, cx, cy, c3[4], compRow, "Nosso número", p.nosso_numero ?? p.cora_invoice_id ?? "—", { align: "right", valueSize: 7 });
+  cell(doc, cx, cy, c3[4], compRow, "Nosso número", p.nosso_numero ?? "—", { align: "right", valueSize: 7 });
   cy += compRow;
 
   // Linha 4: Carteira | Espécie moeda | Quantidade | Valor | (=) Valor doc
